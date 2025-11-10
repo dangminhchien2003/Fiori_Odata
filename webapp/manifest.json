@@ -17,7 +17,7 @@
     },
     "dataSources": {
       "mainService": {
-        "uri": "/V2/Northwind/Northwind.svc/",
+        "uri": "/sap/opu/odata/sap/ZLEAVE_REQUEST_SRV/",
         "type": "OData",
         "settings": {
           "annotations": [],
@@ -62,7 +62,10 @@
         "type": "sap.ui.model.resource.ResourceModel",
         "settings": {
           "bundleName": "base.i18n.i18n",
-          "supportedLocales": ["en", ""],
+          "supportedLocales": [
+            "en",
+            ""
+          ],
           "fallbackLocale": ""
         }
       },
@@ -98,7 +101,16 @@
         {
           "name": "RouteMain",
           "pattern": ":?query:",
-          "target": ["TargetMain"]
+          "target": [
+            "TargetMain"
+          ]
+        },
+        {
+          "name": "showNotFound",
+          "pattern": "notfound",
+          "target": [
+            "notFound"
+          ]
         }
       ],
       "targets": {

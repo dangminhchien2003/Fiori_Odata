@@ -40,16 +40,18 @@ server:
     - name: fiori-tools-proxy
       afterMiddleware: compression
       configuration:
-        ignoreCertError: false # If set to true, certificate errors will be ignored. E.g. self-signed certificates will be accepted
+        ignoreCertError: false
         backend:
           - path: /V2
             url: https://services.odata.org
+          - url: http://dev-s4appdb:8006
+            path: /sap
     - name: sap-fe-mockserver
       beforeMiddleware: csp
       configuration:
         mountPath: /
         services:
-          - urlPath: /V2/Northwind/Northwind.svc
+          - urlPath: /sap/opu/odata/sap/ZLEAVE_REQUEST_SRV
             metadataPath: ./webapp/localService/mainService/metadata.xml
             mockdataPath: ./webapp/localService/mainService/data
             generateMockData: true

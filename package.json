@@ -10,6 +10,7 @@
   "main": "webapp/index.html",
   "devDependencies": {
     "@babel/eslint-parser": "7.14.7",
+    "@openui5/ts-types": "^1.140.0",
     "@sap-ux/eslint-plugin-fiori-tools": "^0.4.0",
     "@sap-ux/ui5-middleware-fe-mockserver": "2",
     "@sap/ux-ui5-tooling": "1",
