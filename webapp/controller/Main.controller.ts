@@ -357,7 +357,7 @@ export default class Main extends Base {
   public onSelectionChange(event: FilterBar$FilterChangeEvent) {
     this.svm.currentVariantSetModified(true);
     this.filterBar.fireEvent("filterChange", event);
-    this.onSearch();
+    // this.onSearch();
   }
 
   public onFilterChange() {
@@ -429,21 +429,21 @@ export default class Main extends Base {
     const tabeMoel = this.getModel<JSONModel>("table");
 
     // Lấy filters từ các control
-    const filterValues = this.getFilters();
-    console.log("Filter values from controls:", filterValues);
+    // const filterValues = this.getFilters();
+    // console.log("Filter values from controls:", filterValues);
 
     // Chuyển đổi object thành mảng Filter cho OData
-    const filters = Object.keys(filterValues).map((key) => {
-      const value = filterValues[key];
-      console.log(`Creating filter: path=${key}, value=${value}`);
-      return new Filter(key, FilterOperator.EQ, value);
-    });
+    // const filters = Object.keys(filterValues).map((key) => {
+    //   const value = filterValues[key];
+    //   console.log(`Creating filter: path=${key}, value=${value}`);
+    //   return new Filter(key, FilterOperator.EQ, value);
+    // });
 
-    console.log("Filters for OData read:", filters);
+    // console.log("Filters for OData read:", filters);
     this.table.setBusy(true);
 
     oDataModel.read("/LeaveRequestSet", {
-      filters: filters,
+      filters: [],
       // urlParameters: {},
       success: (response: ODataResponse<LeaveRequestItem[]>) => {
         this.table.setBusy(false);
@@ -457,6 +457,8 @@ export default class Main extends Base {
         console.error("OData read error:", error);
       },
     });
+
+    this.table.setShowOverlay(false);
   }
 
   //format status text
