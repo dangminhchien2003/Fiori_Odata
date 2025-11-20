@@ -1,0 +1,90 @@
+<core:FragmentDefinition 
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:form="sap.ui.layout.form"
+>
+    <Dialog 
+        id="editDialog" 
+        title="Update Leave Request" 
+        afterClose="onAfterCloseCreateRequest"
+    >
+        <content>
+            <form:SimpleForm
+                editable="true"
+                binding="{form>/}"
+            >
+                <!-- Loại phép -->
+                <Label text="Loại phép" required="true"/>
+                <ComboBox 
+                    required="true" 
+                    items="{master>/LeaveType}"
+                    selectedKey="{form>LeaveType}"
+                >
+                    <items>
+                        <core:Item
+                            key="{master>FieldKey}"
+                            text="{master>FieldValue}"
+                        />
+                    </items>
+                </ComboBox>
+
+                <!-- Ngày bắt đầu -->
+                <Label text="Ngày bắt đầu" required="true"/>
+                <DatePicker 
+                    required="true"
+                    valueFormat="yyyyMMdd"
+                    displayFormat="dd.MM.yyyy"
+                    value="{form>StartDate}"
+                />
+
+                <!-- Ngày kết thúc -->
+                <Label text="Ngày kết thúc" required="true"/>
+                <DatePicker 
+                    required="true"
+                    valueFormat="yyyyMMdd"
+                    displayFormat="dd.MM.yyyy"
+                    value="{form>EndDate}"
+                />
+
+                <!-- Thời gian nghỉ -->
+                <Label text="Thời gian nghỉ" required="true"/>
+                <RadioButtonGroup 
+                    columns="3" 
+                    buttons="{path: 'master>/TimeSlot'}"
+                    selectedIndex="{form>TimeSlotIndex}"
+                    select="onRadioSelectionChange"
+                >
+                    <buttons>
+                        <RadioButton text="{master>FieldValue}"/>
+                    </buttons>
+                </RadioButtonGroup>
+
+                <!-- Lý do -->
+                <Label text="Lý do xin nghỉ" required="true"/>
+                <TextArea 
+                    required="true"  
+                    rows="3"
+                    growingMaxLines="3"
+                    value="{form>Reason}"
+                />
+            </form:SimpleForm>
+       </content>
+
+       <beginButton>
+            <Button 
+                text="Update" 
+                type="Emphasized" 
+                press=".onSubmitEditRequest" 
+                icon="sap-icon://paper-plane"
+            />
+       </beginButton>
+
+       <endButton>
+            <Button 
+                text="Cancel" 
+                press=".onCancelEdit" 
+            />
+       </endButton>
+
+    </Dialog>
+</core:FragmentDefinition>

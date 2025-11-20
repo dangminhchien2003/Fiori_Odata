@@ -22,11 +22,29 @@
         <f:header>
             <f:DynamicPageHeader >
                 <f:content>
-                    <fb:FilterBar id="filterBar" persistencyKey="myPersKey" useToolbar="false" search="onSearch" filterChange="onFilterChange" afterVariantLoad="onAfterVariantLoad">
+                    <fb:FilterBar 
+                        id="filterBar" 
+                        persistencyKey="myPersKey" 
+                        useToolbar="false" 
+                        search="onSearch" 
+                        filterChange="onFilterChange" 
+                        afterVariantLoad="onAfterVariantLoad"
+                    >
                         <fb:filterGroupItems>
-                            <fb:FilterGroupItem name="LeaveType" label="Loại phép" groupName="Group1" visibleInFilterBar="true">
+                            <fb:FilterGroupItem 
+                                name="LeaveType" 
+                                label="Loại phép" 
+                                groupName="Group1" 
+                                visibleInFilterBar="true"
+                            >
                                 <fb:control>
-                                    <ComboBox name="LeaveType" selectionChange="onSelectionChange" items="{path: 'master>/leaveType'}">
+                                    <ComboBox 
+                                        name="LeaveType" 
+                                        selectionChange="onSelectionChange" 
+                                        items="{
+                                            path: 'master>/LeaveType'
+                                        }"
+                                    >
                                          <items>
                                             <core:Item key="{master>FieldKey}" text="{master>FieldValue}" />
                                         </items>
@@ -34,12 +52,17 @@
                                 </fb:control>
                             </fb:FilterGroupItem>
                             
-                            <fb:FilterGroupItem name="Status" label="Trạng thái" groupName="Group2" visibleInFilterBar="true">
+                            <fb:FilterGroupItem 
+                                name="Status" 
+                                label="Trạng thái" 
+                                groupName="Group2" 
+                                visibleInFilterBar="true"
+                            >
                                 <fb:control>
                                     <ComboBox
                                         name="Status"
                                         selectionChange="onSelectionChange"
-                                        items="{path: 'master>/status'}"
+                                        items="{path: 'master>/Status'}"
                                     >
                                         <items>
                                             <core:Item key="{master>FieldKey}" text="{master>FieldValue}" />
@@ -48,12 +71,17 @@
                                 </fb:control>
                             </fb:FilterGroupItem>
 
-                            <fb:FilterGroupItem name="TimeSlot" label="TimeSlot" groupName="Group3" visibleInFilterBar="true">
+                            <fb:FilterGroupItem 
+                                name="TimeSlot" 
+                                label="TimeSlot" 
+                                groupName="Group3" 
+                                visibleInFilterBar="true"
+                            >
                                 <fb:control>
                                     <ComboBox
                                         name="TimeSlot"
                                         selectionChange="onSelectionChange"
-                                        items="{path: 'master>/timeSlot'}"
+                                        items="{path: 'master>/TimeSlot'}"
                                     >
                                         <items>
                                             <core:Item key="{master>FieldKey}" text="{master>FieldValue}" />
@@ -61,43 +89,87 @@
                                     </ComboBox>
                                 </fb:control>
                             </fb:FilterGroupItem>
+
                         </fb:filterGroupItems>
                     </fb:FilterBar>
                 </f:content>
             </f:DynamicPageHeader>
         </f:header>
         <f:content>
-            <table:Table id="table" rows="{table>/rows}" selectionMode="MultiToggle" rowSelectionChange="onRowSelectionChange" rowActionCount="1" >
+            <table:Table 
+                id="table" 
+                rows="{table>/rows}" 
+                selectionMode="MultiToggle" 
+                rowSelectionChange="onRowSelectionChange" 
+                rowActionCount="1" 
+            >
                 <table:extension>
                     <OverflowToolbar class="sapMTBHeader-CTX">
                         <Title text="Leave Request"></Title>
                         <ToolbarSpacer/>
-                        <Button id="btnAdd" text="Add" tooltip="Add" type="Emphasized" icon="sap-icon://add" press="onAdd"></Button>
-                        <Button id="btnEdit" text="Edit" tooltip="Edit" type="Emphasized" icon="sap-icon://edit" enabled="false" press="onEdit"/>
-                        <Button id="btnDelete" text="Delete" tooltip="Delete" type="Reject" icon="sap-icon://delete" enabled="false" press="onDelete"/>
+                        <Button 
+                            id="btnAdd" 
+                            text="Add"
+                            tooltip="Add" 
+                            type="Emphasized" 
+                            icon="sap-icon://add" 
+                            press="onAdd"
+                        />
+                        <Button 
+                            id="btnEdit" 
+                            text="Edit" 
+                            tooltip="Edit" 
+                            type="Emphasized" 
+                            icon="sap-icon://edit" 
+                            enabled="{= ${table>/selectedIndices}.length === 1 }" 
+                            press="onEditRequest"
+                        />
+                        <Button 
+                            id="btnDelete" 
+                            text="Delete" 
+                            tooltip="Delete" 
+                            type="Reject" 
+                            icon="sap-icon://delete" 
+                            enabled="{= ${table>/selectedIndices}.length === 1 }" 
+                            press="onDeleteRequest"
+                        />
                         <ToolbarSeparator/>
-                        <Button icon="sap-icon://excel-attachment" tooltip="Export to Excel" press="onExportExcel"/>
+                        <Button 
+                            icon="sap-icon://excel-attachment" 
+                            tooltip="Export to Excel" 
+                            press="onExportExcel"
+                        />
                     </OverflowToolbar>
                 </table:extension>
                 <table:noData>
-                    <IllustratedMessage illustrationType="sapIllus-NoSearchResults" enableVerticalResponsiveness="true"/>
+                    <IllustratedMessage 
+                        illustrationType="sapIllus-NoSearchResults" 
+                        enableVerticalResponsiveness="true"
+                    />
                 </table:noData>
                 <table:columns>
-                    <table:Column id="RequestId" sortProperty="RequestId" filterProperty="RequestId">
+                    <table:Column 
+                        id="RequestId" 
+                        sortProperty="RequestId" 
+                        filterProperty="RequestId"
+                    >
                         <table:label>
-                            <Label text="Mã đơn nghỉ"></Label>
+                            <Label text="Mã đơn nghỉ"/>
                         </table:label>
                         <table:template>
-                            <ObjectIdentifier title="{table>RequestId}" titleActive="true"></ObjectIdentifier>
+                            <ObjectIdentifier 
+                                title="{table>RequestId}" 
+                                titleActive="true"
+                            />
                         </table:template>
                     </table:Column>
 
                     <table:Column >
                         <table:label>
-                            <Label text="Loại phép"></Label>
+                            <Label text="Loại phép"/>
                         </table:label>
                         <table:template>
-                            <Text text="{table>LeaveType}"></Text>
+                            <Text text="{table>LeaveType}"/>
                         </table:template>
                     </table:Column>
 
@@ -106,11 +178,12 @@
                             <Label text="Ngày bắt đầu nghỉ"/>
                         </table:label>
                         <table:template>
-                            <Text text="{
-                                path: 'table>StartDate',
-                                type: 'sap.ui.model.type.Date',
-                                formatOptions: { pattern: 'dd.MM.yyyy' }
-                            }" />
+                             <Text
+                                text="{
+                                    path: 'table>StartDate',
+                                    formatter: '.formatter.formatDate'
+                                }"
+                            />
                         </table:template>
                     </table:Column>
 
@@ -119,11 +192,12 @@
                             <Label text="Ngày kết thúc nghỉ"/>
                         </table:label>
                         <table:template>
-                            <Text text="{
-                                path: 'table>EndDate',
-                                type: 'sap.ui.model.type.Date',
-                                formatOptions: { pattern: 'dd.MM.yyyy' }
-                            }" />
+                            <Text
+                                text="{
+                                    path: 'table>EndDate',
+                                    formatter: '.formatter.formatDate'
+                                }"
+                            />
                         </table:template>
                     </table:Column>
 

@@ -11,6 +11,15 @@ export interface LeaveRequestItem {
   TimeSlot: string;
 }
 
+export interface LeaveRequestForm {
+  LeaveType: string;
+  StartDate: string;
+  EndDate: string;
+  Reason: string;
+  TimeSlot: string;
+  TimeSlotIndex: number;
+}
+
 export interface FieldValueHelpItem {
   FieldKey: string;
   FieldName: string;
