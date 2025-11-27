@@ -1,6 +1,7 @@
 <mvc:View xmlns:table="sap.ui.table"
     xmlns:core="sap.ui.core"
-    xmlns:f="sap.f" controllerName="base.controller.Main"
+    xmlns:f="sap.f" 
+    controllerName="base.controller.Main"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:svm="sap.ui.comp.smartvariants"

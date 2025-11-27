@@ -36,7 +36,23 @@ import type { RadioButtonGroup$SelectEvent } from "sap/m/RadioButtonGroup";
 import type Context from "sap/ui/model/Context";
 import MessageBox from "sap/m/MessageBox";
 import type { Route$MatchedEvent } from "sap/ui/core/routing/Route";
+import type InputBase from "sap/m/InputBase";
+import Event from "sap/ui/base/Event";
+import type Control from "sap/ui/core/Control";
+import MessagePopover from "sap/m/MessagePopover";
+import MessageItem from "sap/m/MessageItem";
+import type Button from "sap/m/Button";
+import ElementRegistry from "sap/ui/core/ElementRegistry";
+import Message from "sap/ui/core/message/Message";
+import MessageType from "sap/ui/core/message/MessageType";
+import Core from "sap/ui/core/Core";
+import MessageManager from "sap/ui/core/message/MessageManager";
+import Messaging from "sap/ui/core/Messaging";
+import type PropertyBinding from "sap/ui/model/PropertyBinding";
 
+interface IMessageWithTarget extends Message {
+  target?: string;
+}
 /**
  * @namespace base.controller
  */
@@ -57,6 +73,11 @@ export default class Main extends Base {
   //Dialog
   private addDialog: Dialog;
   private editDialog: Dialog;
+
+  //validate
+  private messagePopover: MessagePopover;
+  private buttonMessagePop: Button;
+  private messageManager: Messaging;
 
   public override onInit(): void {
     // this.model = new JSONModel();
@@ -90,6 +111,12 @@ export default class Main extends Base {
     this.expandedLabel = this.getControlById<Label>("expandedLabel");
     this.snappedLabel = this.getControlById<Label>("snappedLabel");
     this.filterBar = this.getControlById("filterBar");
+
+    //Validate MessagePopover
+    this.buttonMessagePop = this.getControlById<Button>("messagePopoverBtn");
+
+    // Khởi tạo message manager
+    this.messageManager = Messaging;
 
     //filter initialize
     this.filterBar.registerFetchData(this.fetchData);
@@ -527,8 +554,8 @@ export default class Main extends Base {
     }
   }
 
-  // onCancelAdd
   public onCancelAdd(): void {
+    this.resetValidate(this.addDialog);
     this.addDialog.close();
   }
 
@@ -547,6 +574,24 @@ export default class Main extends Base {
 
     const oDataModel = this.getModel<ODataModel>();
 
+    const isValid = this.onValidateBeforeSubmit(this.addDialog);
+    if (!isValid) {
+      // Mở MessagePopover nếu form có lỗi
+      if (!this.messagePopover) {
+        this.createMessagePopover();
+      }
+
+      // Cập nhật nút message popover
+      this.buttonMessagePop.setType(this.buttonTypeFormatter());
+      this.buttonMessagePop.setIcon(this.buttonIconFormatter());
+      this.buttonMessagePop.setText(this.highestSeverityMessages());
+
+      // Mở popover gắn với nút
+      this.messagePopover.openBy(this.buttonMessagePop);
+
+      return;
+    }
+
     const { LeaveType, StartDate, EndDate, Reason, TimeSlot } = formData;
 
     dialog.setBusy(true);
@@ -557,7 +602,7 @@ export default class Main extends Base {
         StartDate: this.formatter.toUTCDate(StartDate),
         EndDate: this.formatter.toUTCDate(EndDate),
         Reason,
-        TimeSlot,
+        TimeSlot: "01",
         Status: "01", // New
       },
       {
@@ -599,8 +644,8 @@ export default class Main extends Base {
         new JSONModel({
           RequestId: item.RequestId,
           LeaveType: item.LeaveType,
-          StartDate: this.formatter.formatDate(item.StartDate),
-          EndDate: this.formatter.formatDate(item.EndDate),
+          StartDate: this.formatter.formatDate(item.StartDate, "yyyyMMdd", "yyyyMMdd"),
+          EndDate: this.formatter.formatDate(item.EndDate, "yyyyMMdd", "yyyyMMdd"),
           Reason: item.Reason,
           TimeSlot: item.TimeSlot,
           TimeSlotIndex: item.TimeSlot ? parseInt(item.TimeSlot) - 1 : 0,
@@ -614,8 +659,8 @@ export default class Main extends Base {
     }
   }
 
-  // onCancelEdit
   public onCancelEdit(): void {
+    this.resetValidate(this.editDialog);
     this.editDialog.close();
   }
 
@@ -633,6 +678,11 @@ export default class Main extends Base {
     const formData = <LeaveRequestItem>formModel.getData();
 
     const oDataModel = this.getModel<ODataModel>();
+
+    const isValid = this.onValidateBeforeSubmit(this.editDialog);
+    if (!isValid) {
+      return;
+    }
 
     dialog.setBusy(true);
     const key = oDataModel.createKey("/LeaveRequestSet", { RequestId: formData.RequestId });
@@ -703,6 +753,432 @@ export default class Main extends Base {
   // #endregion Event handlers
 
   // #region Validation
+  public onChangeValue(event: Event) {
+    try {
+      const control = event.getSource<InputBase>();
+
+      if (control.getVisible()) {
+        this.validateControl(control);
+
+        if (this.isControl<DatePicker>(control, "sap.m.DatePicker")) {
+          const bindingPath = control.getBinding("value")?.getPath();
+
+          const allDatePickers = this.getFormControlsByFieldGroup<DatePicker>({
+            groupId: "FormField",
+            types: ["sap.m.DatePicker"],
+          });
+
+          const otherControl = allDatePickers.find((c) => {
+            const otherPath = c.getBinding("value")?.getPath();
+
+            if (bindingPath === "StartDate" && otherPath === "EndDate") return true;
+
+            if (bindingPath === "EndDate" && otherPath === "StartDate") return true;
+
+            return false;
+          });
+
+          if (otherControl) {
+            this.validateControl(otherControl);
+          }
+        }
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  private resetValidate(container: Dialog) {
+    const controls = this.getFormControlsByFieldGroup<InputBase>({
+      groupId: "FormField",
+      container: container,
+    });
+
+    controls.forEach((c) => {
+      this.setMessageState(c, { message: "", severity: "None" });
+    });
+  }
+
+  private onValidateBeforeSubmit(container: Dialog) {
+    const controls = this.getFormControlsByFieldGroup<InputBase>({
+      groupId: "FormField",
+      container: container,
+    });
+
+    const isValid = this.validateControls(controls);
+
+    if (isValid) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  // private onValidateBeforeEditSubmit() {
+  //   const controls = this.getFormControlsByFieldGroup<InputBase>({
+  //     groupId: "FormField",
+  //     container: this.editDialog,
+  //   });
+
+  //   const isValid = this.validateControls(controls);
+
+  //   if (isValid) {
+  //     return true;
+  //   } else {
+  //     return false;
+  //   }
+  // }
+
+  private validateControls(controls: InputBase[]) {
+    let isValid = false;
+    let isError = false;
+
+    controls.forEach((control) => {
+      isError = this.validateControl(control);
+
+      isValid = isValid || isError;
+    });
+
+    return !isValid;
+  }
+
+  private validateControl(control: InputBase): boolean {
+    let isError = false;
+
+    this.setMessageState(control, {
+      message: "",
+      severity: "None",
+    });
+
+    let requiredError = false;
+    let outOfRangeError = false;
+    let pastDateError = false;
+    let dateRangeError = false;
+
+    let value: string = "";
+
+    switch (true) {
+      case this.isControl<Input>(control, "sap.m.Input"): {
+        value = control.getValue().trim();
+
+        if (!value && control.getRequired()) {
+          requiredError = true;
+        }
+
+        break;
+      }
+      case this.isControl<TextArea>(control, "sap.m.TextArea"): {
+        value = control.getValue().trim();
+
+        if (!value && control.getRequired()) {
+          requiredError = true;
+        }
+
+        break;
+      }
+      case this.isControl<DatePicker>(control, "sap.m.DatePicker"): {
+        value = control.getValue();
+
+        const selectedDate = control.getDateValue();
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (!value && control.getRequired()) {
+          requiredError = true;
+        } else if (value && !control.isValidValue()) {
+          outOfRangeError = true;
+        } else if (selectedDate && selectedDate < today) {
+          pastDateError = true;
+        } else {
+          // Bổ sung kiểm tra ngày hợp lệ nếu cần
+          //kiểm tra startdate > enddate
+          if (selectedDate && !pastDateError) {
+            const bindingPath = control.getBinding("value")?.getPath();
+            const formModel = <JSONModel>control.getModel("form");
+            const formData = formModel.getData();
+
+            let startDateComp: Date | null = null;
+            let endDateComp: Date | null = null;
+
+            if (bindingPath === "StartDate") {
+              startDateComp = selectedDate;
+
+              endDateComp = <Date>this.formatter.toUTCDate(formData.EndDate);
+            } else if (bindingPath === "EndDate") {
+              endDateComp = selectedDate;
+
+              startDateComp = <Date>this.formatter.toUTCDate(formData.StartDate);
+            }
+
+            if (startDateComp && endDateComp) {
+              // Nếu StartDate lớn hơn EndDate
+              if (startDateComp > endDateComp) {
+                dateRangeError = true;
+              }
+            }
+          }
+        }
+
+        break;
+      }
+      case this.isControl<ComboBox>(control, "sap.m.ComboBox"): {
+        value = control.getSelectedKey();
+
+        const input = control.getValue().trim();
+
+        if (!value && input) {
+          outOfRangeError = true;
+        } else if (!value && control.getRequired()) {
+          requiredError = true;
+        }
+
+        break;
+      }
+      default:
+        break;
+    }
+
+    if (requiredError) {
+      this.setMessageState(control, {
+        message: "Required",
+        severity: "Error",
+      });
+
+      isError = true;
+    } else if (outOfRangeError) {
+      this.setMessageState(control, {
+        message: "Invalid value",
+        severity: "Error",
+      });
+
+      isError = true;
+    } else if (pastDateError) {
+      this.setMessageState(control, {
+        message: "Date cannot be in the past",
+        severity: "Error",
+      });
+
+      isError = true;
+    } else if (dateRangeError) {
+      this.setMessageState(control, {
+        message: "Start date must be before end date",
+        severity: "Error",
+      });
+
+      isError = true;
+    }
+
+    return isError;
+  }
+
+  private setMessageState(
+    control: InputBase,
+    options: {
+      message: string;
+      severity: keyof typeof ValueState;
+    }
+  ) {
+    const { message, severity } = options;
+
+    control.setValueState(severity);
+    control.setValueStateText?.(message);
+  }
+
+  //hàm mở đóng messagePo
+  public handleMessagePopoverPress(event: Event) {
+    if (!this.messagePopover) {
+      this.createMessagePopover();
+    }
+    this.messagePopover.toggle(event.getSource());
+  }
+
+  //message popover
+  private createMessagePopover() {
+    if (!this.buttonMessagePop) {
+      // Lấy lại nút từ view khi cần
+      this.buttonMessagePop = this.getControlById<Button>("messagePopoverBtn");
+      if (!this.buttonMessagePop) {
+        console.warn("buttonMessagePop vẫn chưa được khởi tạo");
+        return;
+      }
+    }
+
+    this.messagePopover = new MessagePopover({
+      items: {
+        path: "message>/",
+        template: new MessageItem({
+          title: "{message>message}",
+          subtitle: "{message>additionalText}",
+          type: "{message>type}",
+          activeTitle: true,
+        }),
+      },
+      activeTitlePress: (ev) => {
+        const item = ev.getParameter("item");
+        if (!item) return;
+
+        const bindingContext = item.getBindingContext("message");
+        if (!bindingContext) return;
+
+        const msg = bindingContext.getObject() as { controlId?: string };
+        if (!msg?.controlId) return;
+
+        const ctrl = <Control>ElementRegistry.get(msg.controlId);
+        if (ctrl) {
+          ctrl.focus();
+          ctrl.getDomRef()?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      },
+    });
+
+    this.buttonMessagePop.addDependent(this.messagePopover);
+  }
+
+  public onOpenMessagePopover(e: Event) {
+    this.messagePopover.toggle(e.getSource());
+  }
+
+  private handleRequiredField(oInput: InputBase) {
+    const sTarget = oInput.getBindingContext()?.getPath() + "/" + oInput.getBindingPath("value");
+    if (!sTarget) return;
+
+    this.removeMessageFromTarget(sTarget);
+
+    if (!oInput.getValue() && oInput.getRequired()) {
+      this.messageManager.addMessages(
+        new Message({
+          message: "A mandatory field is required",
+          type: MessageType.Error,
+          additionalText: oInput.getLabels()?.[0]?.getText() || "",
+          target: sTarget,
+          processor: oInput.getModel(),
+        })
+      );
+    }
+  }
+
+  private checkInputConstraints(oInput: InputBase) {
+    const oBinding = oInput.getBinding("value");
+
+    let sValueState: ValueState = ValueState.None;
+    const sTarget = oInput.getBindingContext()?.getPath() + "/" + oInput.getBindingPath("value");
+    if (!sTarget) return;
+
+    this.removeMessageFromTarget(sTarget);
+
+    const oPropertyBinding = oInput.getBinding("value") as PropertyBinding | undefined;
+    const oType = oPropertyBinding?.getType() as any; // ✅ ép kiểu để gọi validateValue
+
+    try {
+      oType?.validateValue(oInput.getValue());
+    } catch (oException) {
+      sValueState = ValueState.Warning;
+      this.messageManager.addMessages(
+        new Message({
+          message: "The value should not exceed 40",
+          type: MessageType.Warning,
+          additionalText: oInput.getLabels()?.[0]?.getText() || "",
+          description: "The value of the working hours field should not exceed 40 hours.",
+          target: sTarget,
+          processor: oInput.getModel(),
+        })
+      );
+    }
+
+    oInput.setValueState(sValueState);
+  }
+
+  private removeMessageFromTarget(sTarget: string) {
+    const messages = this.messageManager.getMessageModel().getData() as IMessageWithTarget[];
+    messages.forEach((oMessage) => {
+      if (oMessage.target === sTarget) {
+        this.messageManager.removeMessages(oMessage);
+      }
+    });
+  }
+
+  //Hiển thị loại nút theo thông báo có mức độ nghiêm trọng cao nhất
+  // Mức độ ưu tiên của các loại thông báo như sau: Lỗi > Cảnh báo > Thành công > Thông tin
+  public buttonTypeFormatter(): "Negative" | "Critical" | "Success" | "Neutral" | undefined {
+    let sHighestSeverity: "Negative" | "Critical" | "Success" | "Neutral" | undefined;
+
+    const aMessages = this.messageManager.getMessageModel().getData() as Message[]; // lấy mảng messages
+    aMessages.forEach((sMessage) => {
+      switch (sMessage.getType()) {
+        case MessageType.Error:
+          sHighestSeverity = "Negative";
+          break;
+        case MessageType.Warning:
+          sHighestSeverity = sHighestSeverity !== "Negative" ? "Critical" : sHighestSeverity;
+          break;
+        case MessageType.Success:
+          sHighestSeverity =
+            sHighestSeverity !== "Negative" && sHighestSeverity !== "Critical" ? "Success" : sHighestSeverity;
+          break;
+        default:
+          sHighestSeverity = !sHighestSeverity ? "Neutral" : sHighestSeverity;
+          break;
+      }
+    });
+
+    return sHighestSeverity;
+  }
+
+  //Hiển thị số lượng tin nhắn có mức độ nghiêm trọng cao nhất
+  public highestSeverityMessages(): string {
+    const sHighestSeverityIconType = this.buttonTypeFormatter();
+
+    let sHighestSeverityMessageType: MessageType;
+
+    switch (sHighestSeverityIconType) {
+      case "Negative":
+        sHighestSeverityMessageType = MessageType.Error;
+        break;
+      case "Critical":
+        sHighestSeverityMessageType = MessageType.Warning;
+        break;
+      case "Success":
+        sHighestSeverityMessageType = MessageType.Success;
+        break;
+      default:
+        sHighestSeverityMessageType = MessageType.Information;
+        break;
+    }
+
+    const messages = this.messageManager.getMessageModel().getData() as Message[];
+
+    const count = messages.reduce((total, msg) => {
+      return msg.getType() === sHighestSeverityMessageType ? total + 1 : total;
+    }, 0);
+
+    return count > 0 ? count.toString() : "";
+  }
+
+  //xác định icon phù hợp nhất hiển thị trên nút MessagePopover
+  public buttonIconFormatter() {
+    let icon: string | undefined;
+    let messages = this.messageManager.getMessageModel().getData() as Message[];
+
+    messages.forEach((message: Message) => {
+      switch (message.getType()) {
+        case "Error":
+          icon = "sap-icon://error";
+          break;
+        case "Warning":
+          icon = icon !== "sap-icon://error" ? "sap-icon://alert" : icon;
+          break;
+        case "Success":
+          icon = icon !== "sap-icon://error" && icon !== "sap-icon://alert" ? "sap-icon://sys-enter-2" : icon;
+          break;
+        default:
+          icon = !icon ? "sap-icon://information" : icon;
+          break;
+      }
+    });
+    return icon ?? "";
+  }
+
   public onRadioSelectionChange(event: RadioButtonGroup$SelectEvent) {
     const control = event.getSource();
 

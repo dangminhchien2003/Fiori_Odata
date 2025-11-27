@@ -12,6 +12,18 @@ import type ODataModel from "sap/ui/model/odata/v2/ODataModel";
 import ResourceModel from "sap/ui/model/resource/ResourceModel";
 import type Component from "../Component";
 
+const formControlTypes = [
+  "sap.m.Input",
+  "sap.m.TextArea",
+  "sap.m.DatePicker",
+  "sap.m.Select",
+  "sap.m.RadioButtonGroup",
+  "sap.m.CheckBox",
+  "sap.m.ComboBox",
+] as const;
+
+type FormControlType = (typeof formControlTypes)[number];
+
 /**
  * @namespace base.controller
  */
@@ -114,5 +126,27 @@ export default class Base extends Controller {
 
   protected isControl<T extends Control>(control: unknown, name: string): control is T {
     return this.getControlName(<Control>control) === name;
+  }
+
+  protected getFormControlsByFieldGroup<T extends Control>(props: {
+    groupId: string | string[];
+    container?: Control;
+    types?: readonly FormControlType[];
+  }) {
+    const { groupId, container, types = formControlTypes } = props;
+
+    const _container = container ?? this.getView();
+
+    if (!_container) return [];
+
+    return _container.getControlsByFieldGroupId(groupId).filter((control) => {
+      const isFormControl = (<string[]>types).some((type) => {
+        return this.isControl(control, type);
+      });
+
+      const isVisible = control.getVisible();
+
+      return isFormControl && isVisible;
+    }) as T[];
   }
 }

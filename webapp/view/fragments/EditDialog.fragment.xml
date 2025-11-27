@@ -19,6 +19,8 @@
                     required="true" 
                     items="{master>/LeaveType}"
                     selectedKey="{form>LeaveType}"
+                    change="onChangeValue"
+                    fieldGroupIds="FormField"
                 >
                     <items>
                         <core:Item
@@ -35,6 +37,8 @@
                     valueFormat="yyyyMMdd"
                     displayFormat="dd.MM.yyyy"
                     value="{form>StartDate}"
+                    change="onChangeValue"
+                    fieldGroupIds="FormField"
                 />
 
                 <!-- Ngày kết thúc -->
@@ -44,6 +48,8 @@
                     valueFormat="yyyyMMdd"
                     displayFormat="dd.MM.yyyy"
                     value="{form>EndDate}"
+                    change="onChangeValue"
+                    fieldGroupIds="FormField"
                 />
 
                 <!-- Thời gian nghỉ -->
@@ -53,6 +59,7 @@
                     buttons="{path: 'master>/TimeSlot'}"
                     selectedIndex="{form>TimeSlotIndex}"
                     select="onRadioSelectionChange"
+                    fieldGroupIds="FormField"
                 >
                     <buttons>
                         <RadioButton text="{master>FieldValue}"/>
@@ -66,6 +73,8 @@
                     rows="3"
                     growingMaxLines="3"
                     value="{form>Reason}"
+                    change="onChangeValue"
+                    fieldGroupIds="FormField"
                 />
             </form:SimpleForm>
        </content>

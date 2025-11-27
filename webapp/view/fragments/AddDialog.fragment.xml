@@ -21,6 +21,8 @@
                     required="true" 
                     items="{master>/LeaveType}"
                     selectedKey="{form>LeaveType}"
+                    change="onChangeValue"
+                    fieldGroupIds="FormField"
                 >
                     <items>
                         <core:Item
@@ -35,10 +37,13 @@
                     required="true"
                 />
                 <DatePicker 
+                    name="StartDate"
                     required="true"
                     valueFormat="yyyyMMdd"
                     displayFormat="dd.MM.yyyy"
                     value="{form>StartDate}"
+                    change="onChangeValue"
+                    fieldGroupIds="FormField"
                 />
 
                 <Label 
@@ -46,10 +51,13 @@
                     required="true"
                 />
                 <DatePicker 
+                    name="EndDate"
                     valueFormat="yyyyMMdd"
                     displayFormat="dd.MM.yyyy"
                     value="{form>EndDate}" 
                     required="true"
+                    change="onChangeValue"
+                    fieldGroupIds="FormField"
                 />
 
                 <Label 
@@ -61,6 +69,7 @@
                     buttons="{path: 'master>/TimeSlot'}"
                     selectedIndex="{form>TimeSlotIndex}"
                     select="onRadioSelectionChange"
+                    fieldGroupIds="FormField"
                 >
                     <buttons>
                         <RadioButton 
@@ -78,11 +87,21 @@
                     rows="3"
                     growingMaxLines="3"
                     value="{form>Reason}"
+                    change="onChangeValue"
+                    fieldGroupIds="FormField"
                 />
             </form:SimpleForm>
        </content>
 
         <buttons>
+            <Button id="messagePopoverBtn"
+					visible="{=!!${message>/}.length}"
+					icon="{ path: '/', formatter: '.buttonIconFormatter' }"
+					type="{ path: '/', formatter: '.buttonTypeFormatter' }"
+					text= "{path: '/', formatter: '.highestSeverityMessages' }"
+					press=".handleMessagePopoverPress"
+					ariaHasPopup="Dialog"/>
+
             <Button 
                 text="Save Draft" 
                 type="Ghost" 
