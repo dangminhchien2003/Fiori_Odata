@@ -45,10 +45,16 @@ import type Button from "sap/m/Button";
 import ElementRegistry from "sap/ui/core/ElementRegistry";
 import Message from "sap/ui/core/message/Message";
 import MessageType from "sap/ui/core/message/MessageType";
-import Core from "sap/ui/core/Core";
-import MessageManager from "sap/ui/core/message/MessageManager";
 import Messaging from "sap/ui/core/Messaging";
 import type PropertyBinding from "sap/ui/model/PropertyBinding";
+
+interface MessageItemType {
+  getControlId?: () => string;
+  controlId?: string;
+  message?: string;
+  additionalText?: string;
+  type?: string;
+}
 
 interface IMessageWithTarget extends Message {
   target?: string;
@@ -117,6 +123,10 @@ export default class Main extends Base {
 
     // Khởi tạo message manager
     this.messageManager = Messaging;
+    this.messageManager.removeAllMessages();
+
+    // Model message
+    this.getView()?.setModel(this.messageManager.getMessageModel(), "message");
 
     //filter initialize
     this.filterBar.registerFetchData(this.fetchData);
@@ -782,6 +792,7 @@ export default class Main extends Base {
             this.validateControl(otherControl);
           }
         }
+        this.updateMessageButton();
       }
     } catch (error) {
       console.log(error);
@@ -814,21 +825,6 @@ export default class Main extends Base {
     }
   }
 
-  // private onValidateBeforeEditSubmit() {
-  //   const controls = this.getFormControlsByFieldGroup<InputBase>({
-  //     groupId: "FormField",
-  //     container: this.editDialog,
-  //   });
-
-  //   const isValid = this.validateControls(controls);
-
-  //   if (isValid) {
-  //     return true;
-  //   } else {
-  //     return false;
-  //   }
-  // }
-
   private validateControls(controls: InputBase[]) {
     let isValid = false;
     let isError = false;
@@ -856,6 +852,7 @@ export default class Main extends Base {
     let dateRangeError = false;
 
     let value: string = "";
+    console.log("json", <JSONModel>control.getModel("form"));
 
     switch (true) {
       case this.isControl<Input>(control, "sap.m.Input"): {
@@ -944,6 +941,7 @@ export default class Main extends Base {
         message: "Required",
         severity: "Error",
       });
+      this.addMessageToManager(control, <JSONModel>control.getModel("form"), "Required", MessageType.Error);
 
       isError = true;
     } else if (outOfRangeError) {
@@ -951,6 +949,7 @@ export default class Main extends Base {
         message: "Invalid value",
         severity: "Error",
       });
+      this.addMessageToManager(control, <JSONModel>control.getModel("form"), "Invalid value", MessageType.Error);
 
       isError = true;
     } else if (pastDateError) {
@@ -958,6 +957,12 @@ export default class Main extends Base {
         message: "Date cannot be in the past",
         severity: "Error",
       });
+      this.addMessageToManager(
+        control,
+        <JSONModel>control.getModel("form"),
+        "Date cannot be in the past",
+        MessageType.Error
+      );
 
       isError = true;
     } else if (dateRangeError) {
@@ -965,9 +970,16 @@ export default class Main extends Base {
         message: "Start date must be before end date",
         severity: "Error",
       });
+      this.addMessageToManager(
+        control,
+        <JSONModel>control.getModel("form"),
+        "Start date must be before end date",
+        MessageType.Error
+      );
 
       isError = true;
     }
+    this.updateMessageButton();
 
     return isError;
   }
@@ -996,15 +1008,27 @@ export default class Main extends Base {
   //message popover
   private createMessagePopover() {
     if (!this.buttonMessagePop) {
-      // Lấy lại nút từ view khi cần
       this.buttonMessagePop = this.getControlById<Button>("messagePopoverBtn");
-      if (!this.buttonMessagePop) {
-        console.warn("buttonMessagePop vẫn chưa được khởi tạo");
-        return;
-      }
+      if (!this.buttonMessagePop) return;
     }
 
     this.messagePopover = new MessagePopover({
+      activeTitlePress: (event) => {
+        const item = event.getParameter("item");
+        if (!item) return;
+
+        const message = item.getBindingContext("message")?.getObject() as MessageItemType;
+        const controlId = message.getControlId?.() || message.controlId;
+
+        if (controlId && typeof controlId === "string") {
+          const control = ElementRegistry.get(controlId);
+          if (control) {
+            control.getDomRef()?.scrollIntoView({ behavior: "smooth", block: "center" });
+            control.focus();
+          }
+        }
+      },
+
       items: {
         path: "message>/",
         template: new MessageItem({
@@ -1014,22 +1038,7 @@ export default class Main extends Base {
           activeTitle: true,
         }),
       },
-      activeTitlePress: (ev) => {
-        const item = ev.getParameter("item");
-        if (!item) return;
-
-        const bindingContext = item.getBindingContext("message");
-        if (!bindingContext) return;
-
-        const msg = bindingContext.getObject() as { controlId?: string };
-        if (!msg?.controlId) return;
-
-        const ctrl = <Control>ElementRegistry.get(msg.controlId);
-        if (ctrl) {
-          ctrl.focus();
-          ctrl.getDomRef()?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      },
+      groupItems: true,
     });
 
     this.buttonMessagePop.addDependent(this.messagePopover);
@@ -1039,117 +1048,90 @@ export default class Main extends Base {
     this.messagePopover.toggle(e.getSource());
   }
 
-  private handleRequiredField(oInput: InputBase) {
-    const sTarget = oInput.getBindingContext()?.getPath() + "/" + oInput.getBindingPath("value");
-    if (!sTarget) return;
+  private addMessageToManager(control: InputBase, model: JSONModel, message: string, type: MessageType) {
+    const bindingPath = control.getBinding("value")?.getPath();
+    const target =
+      (control.getBindingContext()?.getPath() ? control.getBindingContext()?.getPath() : "") + "/" + bindingPath;
+    if (!target) return;
 
-    this.removeMessageFromTarget(sTarget);
+    this.removeMessageFromTarget(target);
 
-    if (!oInput.getValue() && oInput.getRequired()) {
-      this.messageManager.addMessages(
-        new Message({
-          message: "A mandatory field is required",
-          type: MessageType.Error,
-          additionalText: oInput.getLabels()?.[0]?.getText() || "",
-          target: sTarget,
-          processor: oInput.getModel(),
-        })
-      );
-    }
+    this.messageManager.addMessages(
+      new Message({
+        message,
+        type,
+        additionalText: control.getLabels()?.[0]?.getText() || "",
+        target: target,
+        processor: model,
+      })
+    );
+
+    this.updateMessageButton();
   }
 
-  private checkInputConstraints(oInput: InputBase) {
-    const oBinding = oInput.getBinding("value");
+  private removeMessageFromTarget(target: string) {
+    const messageManager = this.messageManager;
+    const messages = <IMessageWithTarget[]>messageManager.getMessageModel().getData();
 
-    let sValueState: ValueState = ValueState.None;
-    const sTarget = oInput.getBindingContext()?.getPath() + "/" + oInput.getBindingPath("value");
-    if (!sTarget) return;
-
-    this.removeMessageFromTarget(sTarget);
-
-    const oPropertyBinding = oInput.getBinding("value") as PropertyBinding | undefined;
-    const oType = oPropertyBinding?.getType() as any; // ✅ ép kiểu để gọi validateValue
-
-    try {
-      oType?.validateValue(oInput.getValue());
-    } catch (oException) {
-      sValueState = ValueState.Warning;
-      this.messageManager.addMessages(
-        new Message({
-          message: "The value should not exceed 40",
-          type: MessageType.Warning,
-          additionalText: oInput.getLabels()?.[0]?.getText() || "",
-          description: "The value of the working hours field should not exceed 40 hours.",
-          target: sTarget,
-          processor: oInput.getModel(),
-        })
-      );
+    const toRemove = messages.filter((msg) => msg.target === target);
+    if (toRemove.length > 0) {
+      messageManager.removeMessages(toRemove);
     }
 
-    oInput.setValueState(sValueState);
-  }
-
-  private removeMessageFromTarget(sTarget: string) {
-    const messages = this.messageManager.getMessageModel().getData() as IMessageWithTarget[];
-    messages.forEach((oMessage) => {
-      if (oMessage.target === sTarget) {
-        this.messageManager.removeMessages(oMessage);
-      }
-    });
+    this.updateMessageButton();
   }
 
   //Hiển thị loại nút theo thông báo có mức độ nghiêm trọng cao nhất
-  // Mức độ ưu tiên của các loại thông báo như sau: Lỗi > Cảnh báo > Thành công > Thông tin
   public buttonTypeFormatter(): "Negative" | "Critical" | "Success" | "Neutral" | undefined {
-    let sHighestSeverity: "Negative" | "Critical" | "Success" | "Neutral" | undefined;
+    let highestSeverity: "Negative" | "Critical" | "Success" | "Neutral" | undefined;
 
     const aMessages = this.messageManager.getMessageModel().getData() as Message[]; // lấy mảng messages
     aMessages.forEach((sMessage) => {
       switch (sMessage.getType()) {
         case MessageType.Error:
-          sHighestSeverity = "Negative";
+          highestSeverity = "Negative";
           break;
         case MessageType.Warning:
-          sHighestSeverity = sHighestSeverity !== "Negative" ? "Critical" : sHighestSeverity;
+          highestSeverity = highestSeverity !== "Negative" ? "Critical" : highestSeverity;
           break;
         case MessageType.Success:
-          sHighestSeverity =
-            sHighestSeverity !== "Negative" && sHighestSeverity !== "Critical" ? "Success" : sHighestSeverity;
+          highestSeverity =
+            highestSeverity !== "Negative" && highestSeverity !== "Critical" ? "Success" : highestSeverity;
           break;
         default:
-          sHighestSeverity = !sHighestSeverity ? "Neutral" : sHighestSeverity;
+          highestSeverity = !highestSeverity ? "Neutral" : highestSeverity;
           break;
       }
     });
 
-    return sHighestSeverity;
+    return highestSeverity;
   }
 
   //Hiển thị số lượng tin nhắn có mức độ nghiêm trọng cao nhất
   public highestSeverityMessages(): string {
-    const sHighestSeverityIconType = this.buttonTypeFormatter();
+    const highestSeverityIconType = this.buttonTypeFormatter();
 
-    let sHighestSeverityMessageType: MessageType;
+    let highestSeverityMessageType: MessageType;
 
-    switch (sHighestSeverityIconType) {
+    switch (highestSeverityIconType) {
       case "Negative":
-        sHighestSeverityMessageType = MessageType.Error;
+        highestSeverityMessageType = MessageType.Error;
         break;
       case "Critical":
-        sHighestSeverityMessageType = MessageType.Warning;
+        highestSeverityMessageType = MessageType.Warning;
         break;
       case "Success":
-        sHighestSeverityMessageType = MessageType.Success;
+        highestSeverityMessageType = MessageType.Success;
         break;
       default:
-        sHighestSeverityMessageType = MessageType.Information;
+        highestSeverityMessageType = MessageType.Information;
         break;
     }
 
     const messages = this.messageManager.getMessageModel().getData() as Message[];
 
     const count = messages.reduce((total, msg) => {
-      return msg.getType() === sHighestSeverityMessageType ? total + 1 : total;
+      return msg.getType() === highestSeverityMessageType ? total + 1 : total;
     }, 0);
 
     return count > 0 ? count.toString() : "";
@@ -1177,6 +1159,13 @@ export default class Main extends Base {
       }
     });
     return icon ?? "";
+  }
+
+  private updateMessageButton() {
+    if (!this.buttonMessagePop) return;
+    this.buttonMessagePop.setType(this.buttonTypeFormatter());
+    this.buttonMessagePop.setIcon(this.buttonIconFormatter());
+    this.buttonMessagePop.setText(this.highestSeverityMessages());
   }
 
   public onRadioSelectionChange(event: RadioButtonGroup$SelectEvent) {
