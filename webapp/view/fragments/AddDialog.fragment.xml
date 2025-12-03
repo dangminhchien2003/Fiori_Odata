@@ -1,11 +1,11 @@
-<core:FragmentDefinition 
+<core:FragmentDefinition
     xmlns="sap.m"
     xmlns:core="sap.ui.core"
     xmlns:form="sap.ui.layout.form"
 >
-    <Dialog 
-        id="addDialog" 
-        title="Create Leaved Request" 
+    <Dialog
+        id="addDialog"
+        title="Create Leaved Request"
         afterClose="onAfterCloseCreateRequest"
     >
         <content>
@@ -13,16 +13,17 @@
                 editable="true"
                 binding="{form>/}"
             >
-                <Label 
-                    text="Loại phép" 
+                <Label
+                    text="Loại phép"
                     required="true"
                 />
-                <ComboBox 
-                    required="true" 
+                <ComboBox
+                    required="true"
                     items="{master>/LeaveType}"
                     selectedKey="{form>LeaveType}"
                     change="onChangeValue"
                     fieldGroupIds="FormField"
+                    tooltip="Loại phép"
                 >
                     <items>
                         <core:Item
@@ -32,11 +33,11 @@
                     </items>
                 </ComboBox>
 
-                <Label 
-                    text="Ngày bắt đầu" 
+                <Label
+                    text="Ngày bắt đầu"
                     required="true"
                 />
-                <DatePicker 
+                <DatePicker
                     name="StartDate"
                     required="true"
                     valueFormat="yyyyMMdd"
@@ -44,80 +45,80 @@
                     value="{form>StartDate}"
                     change="onChangeValue"
                     fieldGroupIds="FormField"
+                    tooltip="Từ ngày"
                 />
 
-                <Label 
-                    text="Ngày kết thúc" 
+                <Label
+                    text="Ngày kết thúc"
                     required="true"
                 />
-                <DatePicker 
+                <DatePicker
                     name="EndDate"
                     valueFormat="yyyyMMdd"
                     displayFormat="dd.MM.yyyy"
-                    value="{form>EndDate}" 
+                    value="{form>EndDate}"
                     required="true"
                     change="onChangeValue"
                     fieldGroupIds="FormField"
+                    tooltip="Đến ngày"
                 />
 
-                <Label 
-                    text="Thời gian nghỉ" 
+                <Label
+                    text="Thời gian nghỉ"
                     required="true"
                 />
-                <RadioButtonGroup 
-                    columns="3" 
+                <RadioButtonGroup
+                    columns="3"
                     buttons="{path: 'master>/TimeSlot'}"
                     selectedIndex="{form>TimeSlotIndex}"
                     select="onRadioSelectionChange"
                     fieldGroupIds="FormField"
+                    tooltip="Thời gian nghỉ"
                 >
                     <buttons>
-                        <RadioButton 
-                            text="{master>FieldValue}"
-                        />
+                        <RadioButton text="{master>FieldValue}" />
                     </buttons>
                 </RadioButtonGroup>
 
-                <Label 
-                    text="Lý do xin nghỉ" 
+                <Label
+                    text="Lý do xin nghỉ"
                     required="true"
                 />
-                <TextArea 
-                    required="true"  
+                <TextArea
+                    required="true"
                     rows="3"
                     growingMaxLines="3"
                     value="{form>Reason}"
                     change="onChangeValue"
                     fieldGroupIds="FormField"
+                    tooltip="Lý do"
                 />
             </form:SimpleForm>
-       </content>
+        </content>
 
-        <buttons>
-            <Button id="messagePopoverBtn"
-					visible="{=!!${message>/}.length}"
-					icon="{ path: '/', formatter: '.buttonIconFormatter' }"
-					type="{ path: '/', formatter: '.buttonTypeFormatter' }"
-					text= "{path: '/', formatter: '.highestSeverityMessages' }"
-					press=".handleMessagePopoverPress"
-					ariaHasPopup="Dialog"/>
-
-            <Button 
-                text="Save Draft" 
-                type="Ghost" 
-                press=".onSubmitCreateRequest" 
-                icon="sap-icon://save"
-            />
-            <Button 
-                text="Send" 
-                type="Emphasized" 
-                press=".onSendAdd" 
-                icon="sap-icon://paper-plane"
-            />
-            <Button 
-                text="Cancel" 
-                press=".onCancelAdd" 
-            />
-        </buttons>
+        <footer>
+            <Toolbar>
+                <Button
+                    id="messagePopoverBtn"
+                    visible="{=!!${message>/}.length}"
+                    icon="{ path: '/', formatter: '.buttonIconFormatter' }"
+                    type="{ path: '/', formatter: '.buttonTypeFormatter' }"
+                    text="{path: '/', formatter: '.highestSeverityMessages' }"
+                    press=".handleMessagePopoverPress"
+                    ariaHasPopup="Dialog"
+                />
+                <ToolbarSpacer />
+                <Button
+                    text="Send"
+                    type="Emphasized"
+                    press=".onSubmitCreateRequest"
+                    icon="sap-icon://paper-plane"
+                />
+                <Button
+                    text="Cancel"
+                    press=".onCancelAdd"
+                />
+            </Toolbar>
+        </footer>
     </Dialog>
 </core:FragmentDefinition>

@@ -11,6 +11,18 @@ import Model from "sap/ui/model/Model";
 import type ODataModel from "sap/ui/model/odata/v2/ODataModel";
 import ResourceModel from "sap/ui/model/resource/ResourceModel";
 import type Component from "../Component";
+import type { Dict, LiteralUnion } from "base/types/utils";
+import type Input from "sap/m/Input";
+import type TextArea from "sap/m/TextArea";
+import type MultiInput from "sap/m/MultiInput";
+import type DatePicker from "sap/m/DatePicker";
+import type TimePicker from "sap/m/TimePicker";
+import type Select from "sap/m/Select";
+import type ComboBox from "sap/m/ComboBox";
+import type MultiComboBox from "sap/m/MultiComboBox";
+import type PropertyBinding from "sap/ui/model/PropertyBinding";
+import type SimpleType from "sap/ui/model/SimpleType";
+import type { BindingContextInfoTarget, CompositeBindingInfo } from "base/types/control";
 
 const formControlTypes = [
   "sap.m.Input",
@@ -124,7 +136,7 @@ export default class Base extends Controller {
     return control.getMetadata().getName();
   }
 
-  protected isControl<T extends Control>(control: unknown, name: string): control is T {
+  protected isControl<T extends Control>(control: unknown, name: LiteralUnion<FormControlType>): control is T {
     return this.getControlName(<Control>control) === name;
   }
 
@@ -148,5 +160,75 @@ export default class Base extends Controller {
 
       return isFormControl && isVisible;
     }) as T[];
+  }
+
+  protected getBindingContextInfo<C extends Control, T extends Dict = Dict>(source: C) {
+    let bindingInfo = <CompositeBindingInfo>{
+      parts: [],
+    };
+
+    switch (true) {
+      case this.isControl<Input>(source, "sap.m.Input"):
+      case this.isControl<TextArea>(source, "sap.m.TextArea"): {
+        bindingInfo = source.getBindingInfo("value");
+
+        break;
+      }
+      case this.isControl<MultiInput>(source, "sap.m.MultiInput"): {
+        bindingInfo = source.getBindingInfo("tokens");
+
+        break;
+      }
+      case this.isControl<DatePicker>(source, "sap.m.DatePicker"):
+      case this.isControl<TimePicker>(source, "sap.m.TimePicker"): {
+        bindingInfo = source.getBindingInfo("value");
+
+        break;
+      }
+      case this.isControl<Select>(source, "sap.m.Select"):
+      case this.isControl<ComboBox>(source, "sap.m.ComboBox"): {
+        bindingInfo = source.getBindingInfo("selectedKey");
+
+        break;
+      }
+      case this.isControl<MultiComboBox>(source, "sap.m.MultiComboBox"): {
+        bindingInfo = source.getBindingInfo("selectedKeys");
+
+        break;
+      }
+    }
+
+    bindingInfo = bindingInfo || {
+      parts: [],
+    };
+
+    const binding = bindingInfo.binding;
+    const context = binding?.getContext();
+    const model = <JSONModel>context?.getModel();
+    const path = bindingInfo.parts?.[0]?.path || "";
+    const modelName = bindingInfo.parts?.[0]?.model || "";
+
+    const tooltipBinding = <PropertyBinding>source.getBinding("tooltip");
+
+    const value: BindingContextInfoTarget<C, T> = {
+      name: binding?.getPath() ?? path ?? "", // Property name (alt: getBindingPath)
+      path: context?.getPath() ?? "", // Value binding path
+      processor: context?.getModel(), // Binding model
+      bindingType: <SimpleType>binding?.getType?.(), // Input data type,
+      data: context?.getObject() as T, // Binding object value
+      binding,
+      model,
+      modelName,
+      label: <string>tooltipBinding?.getValue() || source.getTooltip_Text() || "",
+      control: source,
+      get target() {
+        const path = this.path;
+        const name = this.name;
+
+        return `${path}${path === "/" ? "" : "/"}${name}`;
+      },
+    };
+
+    return value;
   }
 }

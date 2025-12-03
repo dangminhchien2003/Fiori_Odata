@@ -38,7 +38,6 @@ import MessageBox from "sap/m/MessageBox";
 import type { Route$MatchedEvent } from "sap/ui/core/routing/Route";
 import type InputBase from "sap/m/InputBase";
 import Event from "sap/ui/base/Event";
-import type Control from "sap/ui/core/Control";
 import MessagePopover from "sap/m/MessagePopover";
 import MessageItem from "sap/m/MessageItem";
 import type Button from "sap/m/Button";
@@ -46,19 +45,8 @@ import ElementRegistry from "sap/ui/core/ElementRegistry";
 import Message from "sap/ui/core/message/Message";
 import MessageType from "sap/ui/core/message/MessageType";
 import Messaging from "sap/ui/core/Messaging";
-import type PropertyBinding from "sap/ui/model/PropertyBinding";
+import DateTime from "base/utils/DateTime";
 
-interface MessageItemType {
-  getControlId?: () => string;
-  controlId?: string;
-  message?: string;
-  additionalText?: string;
-  type?: string;
-}
-
-interface IMessageWithTarget extends Message {
-  target?: string;
-}
 /**
  * @namespace base.controller
  */
@@ -86,10 +74,6 @@ export default class Main extends Base {
   private messageManager: Messaging;
 
   public override onInit(): void {
-    // this.model = new JSONModel();
-    // void this.model.loadData(sap.ui.require.toUrl("base/model/model.json"), undefined, false);
-    // this.getView()?.setModel(this.model);
-
     this.view = <View>this.getView();
     this.router = this.getRouter();
     this.table = this.getControlById<Table>("table");
@@ -117,9 +101,6 @@ export default class Main extends Base {
     this.expandedLabel = this.getControlById<Label>("expandedLabel");
     this.snappedLabel = this.getControlById<Label>("snappedLabel");
     this.filterBar = this.getControlById("filterBar");
-
-    //Validate MessagePopover
-    this.buttonMessagePop = this.getControlById<Button>("messagePopoverBtn");
 
     // Khởi tạo message manager
     this.messageManager = Messaging;
@@ -545,6 +526,12 @@ export default class Main extends Base {
       if (!this.addDialog) {
         this.addDialog = await this.loadView<Dialog>("AddDialog");
       }
+      const addMessagePopoverBtn = this.getControlById<Button>("messagePopoverBtn");
+
+      if (!this.messagePopover) {
+        this.createMessagePopover(addMessagePopoverBtn);
+      }
+      this.buttonMessagePop = addMessagePopoverBtn;
 
       this.addDialog.setModel(
         new JSONModel({
@@ -565,12 +552,13 @@ export default class Main extends Base {
   }
 
   public onCancelAdd(): void {
-    this.resetValidate(this.addDialog);
     this.addDialog.close();
   }
 
   public onAfterCloseCreateRequest(event: Dialog$AfterCloseEvent) {
     const dialog = event.getSource();
+
+    this.clearErrorMessages(dialog);
 
     dialog.setModel(null, "form");
   }
@@ -586,18 +574,8 @@ export default class Main extends Base {
 
     const isValid = this.onValidateBeforeSubmit(this.addDialog);
     if (!isValid) {
-      // Mở MessagePopover nếu form có lỗi
-      if (!this.messagePopover) {
-        this.createMessagePopover();
-      }
-
-      // Cập nhật nút message popover
-      this.buttonMessagePop.setType(this.buttonTypeFormatter());
-      this.buttonMessagePop.setIcon(this.buttonIconFormatter());
-      this.buttonMessagePop.setText(this.highestSeverityMessages());
-
-      // Mở popover gắn với nút
-      this.messagePopover.openBy(this.buttonMessagePop);
+      this.updateMessageButton();
+      setTimeout(() => this.messagePopover.openBy(this.buttonMessagePop), 0);
 
       return;
     }
@@ -634,7 +612,7 @@ export default class Main extends Base {
   // #endregion Create
 
   // #region Edit
-  async onEditRequest() {
+  async onEditRequest(): Promise<void> {
     const indices = this.table.getSelectedIndices();
 
     if (!indices.length) {
@@ -646,6 +624,14 @@ export default class Main extends Base {
       if (!this.editDialog) {
         this.editDialog = await this.loadView<Dialog>("EditDialog");
       }
+
+      const editMessagePopoverBtn = this.getControlById<Button>("editMessagePopoverBtn");
+      console.log("dsds", editMessagePopoverBtn);
+
+      if (!this.messagePopover) {
+        this.createMessagePopover(editMessagePopoverBtn);
+      }
+      this.buttonMessagePop = editMessagePopoverBtn;
 
       // Lấy item đang chọn
       const item = <LeaveRequestItem>this.table.getContextByIndex(indices[0])?.getObject();
@@ -670,7 +656,6 @@ export default class Main extends Base {
   }
 
   public onCancelEdit(): void {
-    this.resetValidate(this.editDialog);
     this.editDialog.close();
   }
 
@@ -691,6 +676,9 @@ export default class Main extends Base {
 
     const isValid = this.onValidateBeforeSubmit(this.editDialog);
     if (!isValid) {
+      this.updateMessageButton();
+      setTimeout(() => this.messagePopover.openBy(this.buttonMessagePop), 0);
+
       return;
     }
 
@@ -767,46 +755,60 @@ export default class Main extends Base {
     try {
       const control = event.getSource<InputBase>();
 
+      const binding = this.getBindingContextInfo(control);
+
+      const fieldName = binding.name;
+
+      console.log("binding", binding);
+
       if (control.getVisible()) {
         this.validateControl(control);
 
         if (this.isControl<DatePicker>(control, "sap.m.DatePicker")) {
-          const bindingPath = control.getBinding("value")?.getPath();
+          // Tìm cặp DatePicker còn lại
+          const pairControl = this.getPairedDatePicker(control, fieldName);
 
-          const allDatePickers = this.getFormControlsByFieldGroup<DatePicker>({
-            groupId: "FormField",
-            types: ["sap.m.DatePicker"],
-          });
-
-          const otherControl = allDatePickers.find((c) => {
-            const otherPath = c.getBinding("value")?.getPath();
-
-            if (bindingPath === "StartDate" && otherPath === "EndDate") return true;
-
-            if (bindingPath === "EndDate" && otherPath === "StartDate") return true;
-
-            return false;
-          });
-
-          if (otherControl) {
-            this.validateControl(otherControl);
+          if (pairControl) {
+            //Validate control còn lại
+            this.validateControl(pairControl);
           }
         }
-        this.updateMessageButton();
       }
     } catch (error) {
       console.log(error);
     }
   }
 
-  private resetValidate(container: Dialog) {
+  //tìm DatePicker còn lại
+  private getPairedDatePicker(currentControl: DatePicker, fieldName: string): DatePicker | undefined {
+    const allPickers = this.getFormControlsByFieldGroup<DatePicker>({
+      groupId: "FormField",
+      types: ["sap.m.DatePicker"],
+    });
+
+    return allPickers.find((picker) => {
+      if (picker === currentControl) return false;
+
+      const binding = this.getBindingContextInfo(picker);
+      const otherName = binding.name;
+
+      return (
+        (fieldName === "StartDate" && otherName === "EndDate") || (fieldName === "EndDate" && otherName === "StartDate")
+      );
+    });
+  }
+
+  private clearErrorMessages(container: Dialog) {
     const controls = this.getFormControlsByFieldGroup<InputBase>({
       groupId: "FormField",
       container: container,
     });
 
-    controls.forEach((c) => {
-      this.setMessageState(c, { message: "", severity: "None" });
+    controls.forEach((control) => {
+      this.setMessageState(control, {
+        message: "",
+        severity: "None",
+      });
     });
   }
 
@@ -852,7 +854,6 @@ export default class Main extends Base {
     let dateRangeError = false;
 
     let value: string = "";
-    console.log("json", <JSONModel>control.getModel("form"));
 
     switch (true) {
       case this.isControl<Input>(control, "sap.m.Input"): {
@@ -876,43 +877,29 @@ export default class Main extends Base {
       case this.isControl<DatePicker>(control, "sap.m.DatePicker"): {
         value = control.getValue();
 
-        const selectedDate = control.getDateValue();
+        const binding = this.getBindingContextInfo(control);
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const valueAsDate = control.getDateValue();
 
         if (!value && control.getRequired()) {
           requiredError = true;
         } else if (value && !control.isValidValue()) {
           outOfRangeError = true;
-        } else if (selectedDate && selectedDate < today) {
+        } else if (!DateTime.IsSameOrAfter(valueAsDate, new Date())) {
           pastDateError = true;
         } else {
-          // Bổ sung kiểm tra ngày hợp lệ nếu cần
           //kiểm tra startdate > enddate
-          if (selectedDate && !pastDateError) {
-            const bindingPath = control.getBinding("value")?.getPath();
-            const formModel = <JSONModel>control.getModel("form");
-            const formData = formModel.getData();
+          if (valueAsDate && !pastDateError) {
+            const pair = this.getPairedDatePicker(control, binding.name);
 
-            let startDateComp: Date | null = null;
-            let endDateComp: Date | null = null;
+            if (!pair) break;
 
-            if (bindingPath === "StartDate") {
-              startDateComp = selectedDate;
+            const pairDate = pair.getDateValue();
+            const startDate = binding.name === "StartDate" ? valueAsDate : pairDate;
+            const endDate = binding.name === "EndDate" ? valueAsDate : pairDate;
 
-              endDateComp = <Date>this.formatter.toUTCDate(formData.EndDate);
-            } else if (bindingPath === "EndDate") {
-              endDateComp = selectedDate;
-
-              startDateComp = <Date>this.formatter.toUTCDate(formData.StartDate);
-            }
-
-            if (startDateComp && endDateComp) {
-              // Nếu StartDate lớn hơn EndDate
-              if (startDateComp > endDateComp) {
-                dateRangeError = true;
-              }
+            if (startDate && endDate && !DateTime.IsSameOrAfter(endDate, startDate)) {
+              dateRangeError = true;
             }
           }
         }
@@ -941,7 +928,6 @@ export default class Main extends Base {
         message: "Required",
         severity: "Error",
       });
-      this.addMessageToManager(control, <JSONModel>control.getModel("form"), "Required", MessageType.Error);
 
       isError = true;
     } else if (outOfRangeError) {
@@ -949,7 +935,6 @@ export default class Main extends Base {
         message: "Invalid value",
         severity: "Error",
       });
-      this.addMessageToManager(control, <JSONModel>control.getModel("form"), "Invalid value", MessageType.Error);
 
       isError = true;
     } else if (pastDateError) {
@@ -957,12 +942,6 @@ export default class Main extends Base {
         message: "Date cannot be in the past",
         severity: "Error",
       });
-      this.addMessageToManager(
-        control,
-        <JSONModel>control.getModel("form"),
-        "Date cannot be in the past",
-        MessageType.Error
-      );
 
       isError = true;
     } else if (dateRangeError) {
@@ -970,12 +949,6 @@ export default class Main extends Base {
         message: "Start date must be before end date",
         severity: "Error",
       });
-      this.addMessageToManager(
-        control,
-        <JSONModel>control.getModel("form"),
-        "Start date must be before end date",
-        MessageType.Error
-      );
 
       isError = true;
     }
@@ -992,33 +965,34 @@ export default class Main extends Base {
     }
   ) {
     const { message, severity } = options;
+    this.addMessageToManager(control, message, severity);
 
     control.setValueState(severity);
     control.setValueStateText?.(message);
   }
 
-  //hàm mở đóng messagePo
+  //hàm mở đóng messagePopover
   public handleMessagePopoverPress(event: Event) {
+    const button = event.getSource<Button>();
+
     if (!this.messagePopover) {
-      this.createMessagePopover();
+      this.createMessagePopover(button);
+    } else {
+      button.addDependent(this.messagePopover);
     }
-    this.messagePopover.toggle(event.getSource());
+
+    this.messagePopover.toggle(button);
   }
 
-  //message popover
-  private createMessagePopover() {
-    if (!this.buttonMessagePop) {
-      this.buttonMessagePop = this.getControlById<Button>("messagePopoverBtn");
-      if (!this.buttonMessagePop) return;
-    }
-
+  //tạo message popover
+  private createMessagePopover(button: Button) {
     this.messagePopover = new MessagePopover({
       activeTitlePress: (event) => {
         const item = event.getParameter("item");
         if (!item) return;
 
-        const message = item.getBindingContext("message")?.getObject() as MessageItemType;
-        const controlId = message.getControlId?.() || message.controlId;
+        const message = <Message>item.getBindingContext("message")?.getObject();
+        const controlId = message.getControlId();
 
         if (controlId && typeof controlId === "string") {
           const control = ElementRegistry.get(controlId);
@@ -1036,44 +1010,43 @@ export default class Main extends Base {
           subtitle: "{message>additionalText}",
           type: "{message>type}",
           activeTitle: true,
+          description: "{message>message}",
         }),
       },
       groupItems: true,
     });
 
-    this.buttonMessagePop.addDependent(this.messagePopover);
+    button.addDependent(this.messagePopover);
   }
 
-  public onOpenMessagePopover(e: Event) {
-    this.messagePopover.toggle(e.getSource());
+  private isPositionable(controlId: string): boolean {
+    return controlId ? true : true;
   }
 
-  private addMessageToManager(control: InputBase, model: JSONModel, message: string, type: MessageType) {
-    const bindingPath = control.getBinding("value")?.getPath();
-    const target =
-      (control.getBindingContext()?.getPath() ? control.getBindingContext()?.getPath() : "") + "/" + bindingPath;
+  private addMessageToManager(control: InputBase, message: string, type: keyof typeof MessageType) {
+    const bindingInfo = this.getBindingContextInfo(control);
+    const target = bindingInfo.target;
     if (!target) return;
 
     this.removeMessageFromTarget(target);
-
-    this.messageManager.addMessages(
-      new Message({
-        message,
-        type,
-        additionalText: control.getLabels()?.[0]?.getText() || "",
-        target: target,
-        processor: model,
-      })
-    );
-
-    this.updateMessageButton();
+    if (type !== "None") {
+      this.messageManager.addMessages(
+        new Message({
+          message,
+          type,
+          additionalText: bindingInfo.label || "",
+          target: target,
+          processor: bindingInfo.processor || control.getModel(),
+        })
+      );
+    }
   }
 
   private removeMessageFromTarget(target: string) {
     const messageManager = this.messageManager;
-    const messages = <IMessageWithTarget[]>messageManager.getMessageModel().getData();
+    const messages = <Message[]>messageManager.getMessageModel().getData();
 
-    const toRemove = messages.filter((msg) => msg.target === target);
+    const toRemove = messages.filter((msg) => msg.getTargets().includes(target));
     if (toRemove.length > 0) {
       messageManager.removeMessages(toRemove);
     }
@@ -1085,7 +1058,7 @@ export default class Main extends Base {
   public buttonTypeFormatter(): "Negative" | "Critical" | "Success" | "Neutral" | undefined {
     let highestSeverity: "Negative" | "Critical" | "Success" | "Neutral" | undefined;
 
-    const aMessages = this.messageManager.getMessageModel().getData() as Message[]; // lấy mảng messages
+    const aMessages = <Message[]>this.messageManager.getMessageModel().getData();
     aMessages.forEach((sMessage) => {
       switch (sMessage.getType()) {
         case MessageType.Error:
@@ -1128,7 +1101,7 @@ export default class Main extends Base {
         break;
     }
 
-    const messages = this.messageManager.getMessageModel().getData() as Message[];
+    const messages = <Message[]>this.messageManager.getMessageModel().getData();
 
     const count = messages.reduce((total, msg) => {
       return msg.getType() === highestSeverityMessageType ? total + 1 : total;
@@ -1140,7 +1113,7 @@ export default class Main extends Base {
   //xác định icon phù hợp nhất hiển thị trên nút MessagePopover
   public buttonIconFormatter() {
     let icon: string | undefined;
-    let messages = this.messageManager.getMessageModel().getData() as Message[];
+    let messages = <Message[]>this.messageManager.getMessageModel().getData();
 
     messages.forEach((message: Message) => {
       switch (message.getType()) {

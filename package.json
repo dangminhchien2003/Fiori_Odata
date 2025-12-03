@@ -44,6 +44,7 @@
   },
   "sapuxLayer": "CUSTOMER_BASE",
   "dependencies": {
+    "dayjs": "^1.11.19",
     "lodash.isequal": "^4.5.0",
     "lodash.isstring": "^4.0.1"
   }
