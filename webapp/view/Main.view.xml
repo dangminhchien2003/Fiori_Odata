@@ -1,62 +1,80 @@
-<mvc:View xmlns:table="sap.ui.table"
+<mvc:View
+    xmlns:table="sap.ui.table"
     xmlns:core="sap.ui.core"
-    xmlns:f="sap.f" 
+    xmlns:f="sap.f"
     controllerName="base.controller.Main"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:svm="sap.ui.comp.smartvariants"
-    xmlns:fb="sap.ui.comp.filterbar">
-    <f:DynamicPage headerExpanded="true">
+    xmlns:fb="sap.ui.comp.filterbar"
+>
+    <f:DynamicPage
+        headerExpanded="true"
+        id="dynamicPage"
+        showFooter="true"
+    >
         <f:title>
-            <f:DynamicPageTitle >
+            <f:DynamicPageTitle>
                 <f:heading>
-                    <svm:SmartVariantManagement id="svm" showExecuteOnSelection="true" />
+                    <svm:SmartVariantManagement
+                        id="svm"
+                        showExecuteOnSelection="true"
+                    />
                 </f:heading>
                 <f:expandedContent>
-                    <Label id="expandedLabel" text="No filters active" />
+                    <Label
+                        id="expandedLabel"
+                        text="No filters active"
+                    />
                 </f:expandedContent>
                 <f:snappedContent>
-                    <Label id="snappedLabel" text="No filters active" />
+                    <Label
+                        id="snappedLabel"
+                        text="No filters active"
+                    />
                 </f:snappedContent>
             </f:DynamicPageTitle>
         </f:title>
         <f:header>
-            <f:DynamicPageHeader >
+            <f:DynamicPageHeader>
                 <f:content>
-                    <fb:FilterBar 
-                        id="filterBar" 
-                        persistencyKey="myPersKey" 
-                        useToolbar="false" 
-                        search="onSearch" 
-                        filterChange="onFilterChange" 
+                    <fb:FilterBar
+                        id="filterBar"
+                        persistencyKey="myPersKey"
+                        useToolbar="false"
+                        search="onSearch"
+                        filterChange="onFilterChange"
                         afterVariantLoad="onAfterVariantLoad"
                     >
                         <fb:filterGroupItems>
-                            <fb:FilterGroupItem 
-                                name="LeaveType" 
-                                label="Loại phép" 
-                                groupName="Group1" 
+                            <fb:FilterGroupItem
+                                name="LeaveType"
+                                label="Loại phép"
+                                groupName="Group1"
                                 visibleInFilterBar="true"
                             >
                                 <fb:control>
-                                    <ComboBox 
-                                        name="LeaveType" 
-                                        selectionChange="onSelectionChange" 
+                                    <ComboBox
+                                        name="LeaveType"
+                                        selectionChange="onSelectionChange"
                                         items="{
                                             path: 'master>/LeaveType'
                                         }"
                                     >
-                                         <items>
-                                            <core:Item key="{master>FieldKey}" text="{master>FieldValue}" />
+                                        <items>
+                                            <core:Item
+                                                key="{master>FieldKey}"
+                                                text="{master>FieldValue}"
+                                            />
                                         </items>
                                     </ComboBox>
                                 </fb:control>
                             </fb:FilterGroupItem>
-                            
-                            <fb:FilterGroupItem 
-                                name="Status" 
-                                label="Trạng thái" 
-                                groupName="Group2" 
+
+                            <fb:FilterGroupItem
+                                name="Status"
+                                label="Trạng thái"
+                                groupName="Group2"
                                 visibleInFilterBar="true"
                             >
                                 <fb:control>
@@ -66,16 +84,19 @@
                                         items="{path: 'master>/Status'}"
                                     >
                                         <items>
-                                            <core:Item key="{master>FieldKey}" text="{master>FieldValue}" />
+                                            <core:Item
+                                                key="{master>FieldKey}"
+                                                text="{master>FieldValue}"
+                                            />
                                         </items>
                                     </ComboBox>
                                 </fb:control>
                             </fb:FilterGroupItem>
 
-                            <fb:FilterGroupItem 
-                                name="TimeSlot" 
-                                label="TimeSlot" 
-                                groupName="Group3" 
+                            <fb:FilterGroupItem
+                                name="TimeSlot"
+                                label="TimeSlot"
+                                groupName="Group3"
                                 visibleInFilterBar="true"
                             >
                                 <fb:control>
@@ -85,101 +106,103 @@
                                         items="{path: 'master>/TimeSlot'}"
                                     >
                                         <items>
-                                            <core:Item key="{master>FieldKey}" text="{master>FieldValue}" />
+                                            <core:Item
+                                                key="{master>FieldKey}"
+                                                text="{master>FieldValue}"
+                                            />
                                         </items>
                                     </ComboBox>
                                 </fb:control>
                             </fb:FilterGroupItem>
-
                         </fb:filterGroupItems>
                     </fb:FilterBar>
                 </f:content>
             </f:DynamicPageHeader>
         </f:header>
         <f:content>
-            <table:Table 
-                id="table" 
-                rows="{table>/rows}" 
-                selectionMode="MultiToggle" 
-                rowSelectionChange="onRowSelectionChange" 
-                rowActionCount="1" 
+            <table:Table
+                id="table"
+                rows="{table>/rows}"
+                selectionMode="MultiToggle"
+                rowSelectionChange="onRowSelectionChange"
+                rowActionCount="1"
             >
                 <table:extension>
                     <OverflowToolbar class="sapMTBHeader-CTX">
-                        <Title text="Leave Request"></Title>
-                        <ToolbarSpacer/>
-                        <Button 
-                            id="btnAdd" 
+                        <Title text="Leave Request" />
+                        <ToolbarSpacer />
+                        <Button
+                            id="btnAdd"
                             text="Add"
-                            tooltip="Add" 
-                            type="Emphasized" 
-                            icon="sap-icon://add" 
+                            tooltip="Add"
+                            type="Emphasized"
+                            icon="sap-icon://add"
                             press="onAdd"
                         />
-                        <Button 
-                            id="btnEdit" 
-                            text="Edit" 
-                            tooltip="Edit" 
-                            type="Emphasized" 
-                            icon="sap-icon://edit" 
-                            enabled="{= ${table>/selectedIndices}.length === 1 }" 
+                        <Button
+                            id="btnEdit"
+                            text="Edit"
+                            tooltip="Edit"
+                            type="Emphasized"
+                            icon="sap-icon://edit"
+                            enabled="{= ${table>/selectedIndices}.length === 1 }"
                             press="onEditRequest"
                         />
-                        <Button 
-                            id="btnDelete" 
-                            text="Delete" 
-                            tooltip="Delete" 
-                            type="Reject" 
-                            icon="sap-icon://delete" 
-                            enabled="{= ${table>/selectedIndices}.length === 1 }" 
+                        <Button
+                            id="btnDelete"
+                            text="Delete"
+                            tooltip="Delete"
+                            type="Reject"
+                            icon="sap-icon://delete"
+                            enabled="{= ${table>/selectedIndices}.length === 1 }"
                             press="onDeleteRequest"
                         />
-                        <ToolbarSeparator/>
-                        <Button 
-                            icon="sap-icon://excel-attachment" 
-                            tooltip="Export to Excel" 
+                        <ToolbarSeparator />
+                        <Button
+                            icon="sap-icon://excel-attachment"
+                            tooltip="Export to Excel"
                             press="onExportExcel"
                         />
                     </OverflowToolbar>
                 </table:extension>
                 <table:noData>
-                    <IllustratedMessage 
-                        illustrationType="sapIllus-NoSearchResults" 
+                    <IllustratedMessage
+                        illustrationType="sapIllus-NoSearchResults"
                         enableVerticalResponsiveness="true"
                     />
                 </table:noData>
                 <table:columns>
-                    <table:Column 
-                        id="RequestId" 
-                        sortProperty="RequestId" 
+                    <table:Column
+                        id="RequestId"
+                        sortProperty="RequestId"
                         filterProperty="RequestId"
                     >
                         <table:label>
-                            <Label text="Mã đơn nghỉ"/>
+                            <Label text="Mã đơn nghỉ" />
                         </table:label>
                         <table:template>
-                            <ObjectIdentifier 
-                                title="{table>RequestId}" 
+                            <ObjectIdentifier
+                                title="{table>RequestId}"
                                 titleActive="true"
                             />
                         </table:template>
                     </table:Column>
 
-                    <table:Column >
+                    <table:Column>
                         <table:label>
-                            <Label text="Loại phép"/>
+                            <Label text="Loại phép" />
                         </table:label>
                         <table:template>
-                            <Text text="{table>LeaveType}"/>
+                            <Text text="{table>LeaveType}" />
                         </table:template>
                     </table:Column>
 
                     <table:Column>
                         <table:label>
-                            <Label text="Ngày bắt đầu nghỉ"/>
+                            <Label text="Ngày bắt đầu nghỉ" />
                         </table:label>
                         <table:template>
-                             <Text
+                            <Text
                                 text="{
                                     path: 'table>StartDate',
                                     formatter: '.formatter.formatDate'
@@ -188,9 +211,9 @@
                         </table:template>
                     </table:Column>
 
-                    <table:Column >
+                    <table:Column>
                         <table:label>
-                            <Label text="Ngày kết thúc nghỉ"/>
+                            <Label text="Ngày kết thúc nghỉ" />
                         </table:label>
                         <table:template>
                             <Text
@@ -202,27 +225,27 @@
                         </table:template>
                     </table:Column>
 
-                    <table:Column >
+                    <table:Column>
                         <table:label>
-                            <Label text="TimeSlot"/>
+                            <Label text="TimeSlot" />
                         </table:label>
                         <table:template>
-                            <Text text="{table>TimeSlot}"/>
+                            <Text text="{table>TimeSlot}" />
                         </table:template>
                     </table:Column>
 
-                    <table:Column >
+                    <table:Column>
                         <table:label>
-                            <Label text="Lý do xin nghỉ"/>
+                            <Label text="Lý do xin nghỉ" />
                         </table:label>
                         <table:template>
-                            <Text text="{table>Reason}"/>
+                            <Text text="{table>Reason}" />
                         </table:template>
                     </table:Column>
 
-                    <table:Column >
+                    <table:Column>
                         <table:label>
-                            <Label text="Trạng thái"/>
+                            <Label text="Trạng thái" />
                         </table:label>
                         <table:template>
                             <ObjectStatus
@@ -234,11 +257,14 @@
                     </table:Column>
                 </table:columns>
                 <table:rowActionTemplate>
-                    <table:RowAction >
-                        <table:RowActionItem type="Navigation"></table:RowActionItem>
+                    <table:RowAction>
+                        <table:RowActionItem type="Navigation" />
                     </table:RowAction>
                 </table:rowActionTemplate>
             </table:Table>
         </f:content>
+        <f:footer>
+            <OverflowToolbar id="footer" />
+        </f:footer>
     </f:DynamicPage>
 </mvc:View>

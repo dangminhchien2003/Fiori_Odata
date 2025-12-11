@@ -24,7 +24,7 @@ import { noop } from "base/utils/shared";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import type { Dict } from "base/types/utils";
 import type ODataModel from "sap/ui/model/odata/v2/ODataModel";
-import type { ODataError, ODataResponse } from "base/types/odata";
+import type { ODataError, ODataResponse, ODataResponses } from "base/types/odata";
 import type { FieldValueHelpItem, LeaveRequestForm, LeaveRequestItem } from "base/types/pages/main";
 import { ValueState } from "sap/ui/core/library";
 import type Dialog from "sap/m/Dialog";
@@ -40,12 +40,15 @@ import type InputBase from "sap/m/InputBase";
 import Event from "sap/ui/base/Event";
 import MessagePopover from "sap/m/MessagePopover";
 import MessageItem from "sap/m/MessageItem";
-import type Button from "sap/m/Button";
-import ElementRegistry from "sap/ui/core/ElementRegistry";
+import Button from "sap/m/Button";
 import Message from "sap/ui/core/message/Message";
 import MessageType from "sap/ui/core/message/MessageType";
 import Messaging from "sap/ui/core/Messaging";
 import DateTime from "base/utils/DateTime";
+import { ButtonType } from "sap/m/library";
+import ToolbarSpacer from "sap/m/ToolbarSpacer";
+import type OverflowToolbar from "sap/m/OverflowToolbar";
+import toString from "lodash.tostring";
 
 /**
  * @namespace base.controller
@@ -68,16 +71,21 @@ export default class Main extends Base {
   private addDialog: Dialog;
   private editDialog: Dialog;
 
-  //validate
+  //Messaging
   private messagePopover: MessagePopover;
-  private buttonMessagePop: Button;
+  private buttonMessagePop?: Button;
   private messageManager: Messaging;
+  private toolbarSpacer?: ToolbarSpacer;
+  private footerToolbar: OverflowToolbar;
 
   public override onInit(): void {
     this.view = <View>this.getView();
     this.router = this.getRouter();
     this.table = this.getControlById<Table>("table");
     this.layout = this.getControlById<DynamicPage>("dynamicPage");
+
+    // Messaging
+    this.messageManager = this.getMessageManager();
 
     this.setModel(
       new JSONModel({
@@ -96,18 +104,13 @@ export default class Main extends Base {
       "master"
     );
 
+    this.footerToolbar = this.getControlById("footer");
+
     //filter
     this.svm = this.getControlById<SmartVariantManagement>("svm");
     this.expandedLabel = this.getControlById<Label>("expandedLabel");
     this.snappedLabel = this.getControlById<Label>("snappedLabel");
     this.filterBar = this.getControlById("filterBar");
-
-    // Khởi tạo message manager
-    this.messageManager = Messaging;
-    this.messageManager.removeAllMessages();
-
-    // Model message
-    this.getView()?.setModel(this.messageManager.getMessageModel(), "message");
 
     //filter initialize
     this.filterBar.registerFetchData(this.fetchData);
@@ -142,6 +145,8 @@ export default class Main extends Base {
       .then(() => this.onGetMasterData())
       .then(() => {
         this.filterBar.fireSearch();
+
+        this.addMessageButton();
       })
       .catch((error) => {
         console.log(error);
@@ -469,7 +474,7 @@ export default class Main extends Base {
     oDataModel.read("/LeaveRequestSet", {
       filters: [],
       // urlParameters: {},
-      success: (response: ODataResponse<LeaveRequestItem[]>) => {
+      success: (response: ODataResponses<LeaveRequestItem[]>) => {
         this.table.setBusy(false);
 
         console.log("OData read success:", response.results);
@@ -526,12 +531,6 @@ export default class Main extends Base {
       if (!this.addDialog) {
         this.addDialog = await this.loadView<Dialog>("AddDialog");
       }
-      const addMessagePopoverBtn = this.getControlById<Button>("messagePopoverBtn");
-
-      if (!this.messagePopover) {
-        this.createMessagePopover(addMessagePopoverBtn);
-      }
-      this.buttonMessagePop = addMessagePopoverBtn;
 
       this.addDialog.setModel(
         new JSONModel({
@@ -573,10 +572,8 @@ export default class Main extends Base {
     const oDataModel = this.getModel<ODataModel>();
 
     const isValid = this.onValidateBeforeSubmit(this.addDialog);
-    if (!isValid) {
-      this.updateMessageButton();
-      setTimeout(() => this.messagePopover.openBy(this.buttonMessagePop), 0);
 
+    if (!isValid) {
       return;
     }
 
@@ -625,14 +622,6 @@ export default class Main extends Base {
         this.editDialog = await this.loadView<Dialog>("EditDialog");
       }
 
-      const editMessagePopoverBtn = this.getControlById<Button>("editMessagePopoverBtn");
-      console.log("dsds", editMessagePopoverBtn);
-
-      if (!this.messagePopover) {
-        this.createMessagePopover(editMessagePopoverBtn);
-      }
-      this.buttonMessagePop = editMessagePopoverBtn;
-
       // Lấy item đang chọn
       const item = <LeaveRequestItem>this.table.getContextByIndex(indices[0])?.getObject();
 
@@ -676,9 +665,6 @@ export default class Main extends Base {
 
     const isValid = this.onValidateBeforeSubmit(this.editDialog);
     if (!isValid) {
-      this.updateMessageButton();
-      setTimeout(() => this.messagePopover.openBy(this.buttonMessagePop), 0);
-
       return;
     }
 
@@ -798,20 +784,6 @@ export default class Main extends Base {
     });
   }
 
-  private clearErrorMessages(container: Dialog) {
-    const controls = this.getFormControlsByFieldGroup<InputBase>({
-      groupId: "FormField",
-      container: container,
-    });
-
-    controls.forEach((control) => {
-      this.setMessageState(control, {
-        message: "",
-        severity: "None",
-      });
-    });
-  }
-
   private onValidateBeforeSubmit(container: Dialog) {
     const controls = this.getFormControlsByFieldGroup<InputBase>({
       groupId: "FormField",
@@ -823,6 +795,7 @@ export default class Main extends Base {
     if (isValid) {
       return true;
     } else {
+      this.displayErrorMessage();
       return false;
     }
   }
@@ -843,10 +816,13 @@ export default class Main extends Base {
   private validateControl(control: InputBase): boolean {
     let isError = false;
 
-    this.setMessageState(control, {
-      message: "",
-      severity: "None",
-    });
+    const { target, label, processor, bindingType, model } = this.getBindingContextInfo(control);
+
+    if (!target || !model) {
+      return isError;
+    }
+
+    this.removeMessageFromTarget(target);
 
     let requiredError = false;
     let outOfRangeError = false;
@@ -924,35 +900,60 @@ export default class Main extends Base {
     }
 
     if (requiredError) {
-      this.setMessageState(control, {
+      this.addMessages({
         message: "Required",
-        severity: "Error",
+        type: "Error",
+        additionalText: label,
+        target,
+        processor,
       });
 
       isError = true;
     } else if (outOfRangeError) {
-      this.setMessageState(control, {
+      this.addMessages({
         message: "Invalid value",
-        severity: "Error",
+        type: "Error",
+        additionalText: label,
+        target,
+        processor,
       });
 
       isError = true;
     } else if (pastDateError) {
-      this.setMessageState(control, {
+      this.addMessages({
         message: "Date cannot be in the past",
-        severity: "Error",
+        type: "Error",
+        additionalText: label,
+        target,
+        processor,
       });
 
       isError = true;
     } else if (dateRangeError) {
-      this.setMessageState(control, {
+      this.addMessages({
         message: "Start date must be before end date",
-        severity: "Error",
+        type: "Error",
+        additionalText: label,
+        target,
+        processor,
       });
 
       isError = true;
+    } else if (bindingType) {
+      try {
+        void bindingType.validateValue(value);
+      } catch (error) {
+        const { message } = <Error>error;
+
+        this.addMessages({
+          message,
+          type: "Error",
+          additionalText: label,
+          target,
+          processor,
+        });
+      }
     }
-    this.updateMessageButton();
 
     return isError;
   }
@@ -965,180 +966,23 @@ export default class Main extends Base {
     }
   ) {
     const { message, severity } = options;
-    this.addMessageToManager(control, message, severity);
 
     control.setValueState(severity);
     control.setValueStateText?.(message);
   }
 
-  //hàm mở đóng messagePopover
-  public handleMessagePopoverPress(event: Event) {
-    const button = event.getSource<Button>();
-
-    if (!this.messagePopover) {
-      this.createMessagePopover(button);
-    } else {
-      button.addDependent(this.messagePopover);
-    }
-
-    this.messagePopover.toggle(button);
-  }
-
-  //tạo message popover
-  private createMessagePopover(button: Button) {
-    this.messagePopover = new MessagePopover({
-      activeTitlePress: (event) => {
-        const item = event.getParameter("item");
-        if (!item) return;
-
-        const message = <Message>item.getBindingContext("message")?.getObject();
-        const controlId = message.getControlId();
-
-        if (controlId && typeof controlId === "string") {
-          const control = ElementRegistry.get(controlId);
-          if (control) {
-            control.getDomRef()?.scrollIntoView({ behavior: "smooth", block: "center" });
-            control.focus();
-          }
-        }
-      },
-
-      items: {
-        path: "message>/",
-        template: new MessageItem({
-          title: "{message>message}",
-          subtitle: "{message>additionalText}",
-          type: "{message>type}",
-          activeTitle: true,
-          description: "{message>message}",
-        }),
-      },
-      groupItems: true,
+  private clearErrorMessages(container: Dialog) {
+    const controls = this.getFormControlsByFieldGroup<InputBase>({
+      groupId: "FormField",
+      container: container,
     });
 
-    button.addDependent(this.messagePopover);
-  }
-
-  private isPositionable(controlId: string): boolean {
-    return controlId ? true : true;
-  }
-
-  private addMessageToManager(control: InputBase, message: string, type: keyof typeof MessageType) {
-    const bindingInfo = this.getBindingContextInfo(control);
-    const target = bindingInfo.target;
-    if (!target) return;
-
-    this.removeMessageFromTarget(target);
-    if (type !== "None") {
-      this.messageManager.addMessages(
-        new Message({
-          message,
-          type,
-          additionalText: bindingInfo.label || "",
-          target: target,
-          processor: bindingInfo.processor || control.getModel(),
-        })
-      );
-    }
-  }
-
-  private removeMessageFromTarget(target: string) {
-    const messageManager = this.messageManager;
-    const messages = <Message[]>messageManager.getMessageModel().getData();
-
-    const toRemove = messages.filter((msg) => msg.getTargets().includes(target));
-    if (toRemove.length > 0) {
-      messageManager.removeMessages(toRemove);
-    }
-
-    this.updateMessageButton();
-  }
-
-  //Hiển thị loại nút theo thông báo có mức độ nghiêm trọng cao nhất
-  public buttonTypeFormatter(): "Negative" | "Critical" | "Success" | "Neutral" | undefined {
-    let highestSeverity: "Negative" | "Critical" | "Success" | "Neutral" | undefined;
-
-    const aMessages = <Message[]>this.messageManager.getMessageModel().getData();
-    aMessages.forEach((sMessage) => {
-      switch (sMessage.getType()) {
-        case MessageType.Error:
-          highestSeverity = "Negative";
-          break;
-        case MessageType.Warning:
-          highestSeverity = highestSeverity !== "Negative" ? "Critical" : highestSeverity;
-          break;
-        case MessageType.Success:
-          highestSeverity =
-            highestSeverity !== "Negative" && highestSeverity !== "Critical" ? "Success" : highestSeverity;
-          break;
-        default:
-          highestSeverity = !highestSeverity ? "Neutral" : highestSeverity;
-          break;
-      }
+    controls.forEach((control) => {
+      this.setMessageState(control, {
+        message: "",
+        severity: "None",
+      });
     });
-
-    return highestSeverity;
-  }
-
-  //Hiển thị số lượng tin nhắn có mức độ nghiêm trọng cao nhất
-  public highestSeverityMessages(): string {
-    const highestSeverityIconType = this.buttonTypeFormatter();
-
-    let highestSeverityMessageType: MessageType;
-
-    switch (highestSeverityIconType) {
-      case "Negative":
-        highestSeverityMessageType = MessageType.Error;
-        break;
-      case "Critical":
-        highestSeverityMessageType = MessageType.Warning;
-        break;
-      case "Success":
-        highestSeverityMessageType = MessageType.Success;
-        break;
-      default:
-        highestSeverityMessageType = MessageType.Information;
-        break;
-    }
-
-    const messages = <Message[]>this.messageManager.getMessageModel().getData();
-
-    const count = messages.reduce((total, msg) => {
-      return msg.getType() === highestSeverityMessageType ? total + 1 : total;
-    }, 0);
-
-    return count > 0 ? count.toString() : "";
-  }
-
-  //xác định icon phù hợp nhất hiển thị trên nút MessagePopover
-  public buttonIconFormatter() {
-    let icon: string | undefined;
-    let messages = <Message[]>this.messageManager.getMessageModel().getData();
-
-    messages.forEach((message: Message) => {
-      switch (message.getType()) {
-        case "Error":
-          icon = "sap-icon://error";
-          break;
-        case "Warning":
-          icon = icon !== "sap-icon://error" ? "sap-icon://alert" : icon;
-          break;
-        case "Success":
-          icon = icon !== "sap-icon://error" && icon !== "sap-icon://alert" ? "sap-icon://sys-enter-2" : icon;
-          break;
-        default:
-          icon = !icon ? "sap-icon://information" : icon;
-          break;
-      }
-    });
-    return icon ?? "";
-  }
-
-  private updateMessageButton() {
-    if (!this.buttonMessagePop) return;
-    this.buttonMessagePop.setType(this.buttonTypeFormatter());
-    this.buttonMessagePop.setIcon(this.buttonIconFormatter());
-    this.buttonMessagePop.setText(this.highestSeverityMessages());
   }
 
   public onRadioSelectionChange(event: RadioButtonGroup$SelectEvent) {
@@ -1157,6 +1001,245 @@ export default class Main extends Base {
     formModel.setProperty(`${path}/TimeSlot`, FieldKey);
   }
   // #endregion Validation
+
+  // #region Messaging
+  private onOpenMessagePopover = (event: Button$PressEvent) => {
+    const control = event.getSource();
+
+    if (!this.messagePopover) {
+      this.createMessagePopover();
+    }
+
+    this.messagePopover.toggle(control);
+  };
+
+  //tạo message popover
+  private createMessagePopover() {
+    this.messagePopover = new MessagePopover({
+      activeTitlePress: (event) => {
+        // const item = event.getParameter("item");
+        // if (!item) return;
+        // const message = <Message>item.getBindingContext("message")?.getObject();
+        // const controlId = message.getControlId();
+        // if (controlId && typeof controlId === "string") {
+        //   const control = ElementRegistry.get(controlId);
+        //   if (control) {
+        //     control.getDomRef()?.scrollIntoView({ behavior: "smooth", block: "center" });
+        //     control.focus();
+        //   }
+        // }
+      },
+
+      items: {
+        path: "message>/",
+        template: new MessageItem({
+          title: "{message>message}",
+          subtitle: "{message>additionalText}",
+          type: "{message>type}",
+          description: "{message>description}",
+          groupName: {
+            parts: ["message>controlIds"],
+            formatter: this.getGroupName,
+          },
+          activeTitle: {
+            parts: ["message>controlIds"],
+            formatter: this.isPositionable,
+          },
+        }),
+      },
+      groupItems: true,
+    });
+
+    this.buttonMessagePop?.addDependent(this.messagePopover);
+  }
+
+  private getGroupName = () => {
+    return "Create Leave Request";
+  };
+
+  private isPositionable = () => {
+    return true;
+  };
+
+  private getMessages() {
+    return <Message[]>this.messageManager.getMessageModel().getData();
+  }
+
+  private removeMessageFromTarget(target: string) {
+    const messages = this.getMessages();
+
+    messages.forEach((item) => {
+      if (item.getTargets().includes(target)) {
+        this.messageManager.removeMessages(item);
+      }
+    });
+  }
+
+  //Hiển thị loại nút theo thông báo có mức độ nghiêm trọng cao nhất
+  private buttonTypeFormatter = () => {
+    const messages = this.getMessages();
+    let highestSeverity: ButtonType | undefined;
+
+    messages.forEach((message) => {
+      switch (message.getType()) {
+        case "Error": {
+          highestSeverity = ButtonType.Negative;
+
+          break;
+        }
+        case "Warning": {
+          highestSeverity = highestSeverity !== ButtonType.Negative ? ButtonType.Critical : highestSeverity;
+
+          break;
+        }
+        case "Success": {
+          highestSeverity =
+            highestSeverity !== ButtonType.Negative && highestSeverity !== ButtonType.Critical
+              ? ButtonType.Success
+              : highestSeverity;
+
+          break;
+        }
+        default: {
+          highestSeverity = !highestSeverity ? ButtonType.Neutral : highestSeverity;
+
+          break;
+        }
+      }
+    });
+
+    return highestSeverity;
+  };
+
+  //Hiển thị số lượng tin nhắn có mức độ nghiêm trọng cao nhất
+  private highestSeverityMessages = () => {
+    const messages = this.getMessages();
+    const highestSeverityIconType = this.buttonTypeFormatter();
+    let highestSeverityMessageType: MessageType | undefined;
+
+    switch (highestSeverityIconType) {
+      case ButtonType.Negative: {
+        highestSeverityMessageType = MessageType.Error;
+
+        break;
+      }
+      case ButtonType.Critical: {
+        highestSeverityMessageType = MessageType.Warning;
+
+        break;
+      }
+      case ButtonType.Success: {
+        highestSeverityMessageType = MessageType.Success;
+
+        break;
+      }
+      default: {
+        highestSeverityMessageType = !highestSeverityMessageType ? MessageType.Information : highestSeverityMessageType;
+
+        break;
+      }
+    }
+
+    const totalMessages = messages.reduce((acc, item) => {
+      if (item.getType() === highestSeverityMessageType) {
+        return acc + 1;
+      }
+
+      return acc;
+    }, 0);
+
+    return toString(totalMessages);
+  };
+
+  //xác định icon phù hợp nhất hiển thị trên nút MessagePopover
+  private buttonIconFormatter = () => {
+    let icon: string | undefined;
+    let messages = this.getMessages();
+
+    messages.forEach((message) => {
+      switch (message.getType()) {
+        case MessageType.Error: {
+          icon = "sap-icon://error";
+
+          break;
+        }
+        case MessageType.Warning: {
+          icon = icon !== "sap-icon://error" ? "sap-icon://alert" : icon;
+
+          break;
+        }
+        case MessageType.Success: {
+          icon = icon !== "sap-icon://error" && icon !== "sap-icon://alert" ? "sap-icon://sys-enter-2" : icon;
+
+          break;
+        }
+        default: {
+          icon = !icon ? "sap-icon://information" : icon;
+
+          break;
+        }
+      }
+    });
+
+    return icon;
+  };
+
+  private displayErrorMessage() {
+    if (this.buttonMessagePop) {
+      if (this.buttonMessagePop.getDomRef()) {
+        this.buttonMessagePop.firePress();
+      } else {
+        this.buttonMessagePop.addEventDelegate(this.onAfterRenderingMessageButton);
+      }
+    }
+  }
+
+  private onAfterRenderingMessageButton = {
+    onAfterRendering: () => {
+      if (this.buttonMessagePop) {
+        this.buttonMessagePop.firePress();
+        this.buttonMessagePop.removeEventDelegate(this.onAfterRenderingMessageButton);
+      }
+    },
+  };
+
+  private attachMessageChange() {
+    this.messagePopover.getBinding("items")?.attachChange(() => {
+      this.messagePopover.navigateBack();
+
+      if (this.buttonMessagePop) {
+        this.buttonMessagePop.setType(this.buttonTypeFormatter());
+        this.buttonMessagePop.setIcon(this.buttonIconFormatter());
+        this.buttonMessagePop.setText(this.highestSeverityMessages());
+      }
+    });
+  }
+
+  private addMessageButton() {
+    const toolbar = this.footerToolbar;
+
+    if (!this.buttonMessagePop) {
+      this.buttonMessagePop = new Button({
+        id: "messageButton",
+        visible: "{= ${message>/}.length > 0 }",
+        icon: { path: "/", formatter: this.buttonIconFormatter },
+        type: { path: "/", formatter: this.buttonTypeFormatter },
+        text: { path: "/", formatter: this.highestSeverityMessages },
+        press: this.onOpenMessagePopover,
+      });
+    }
+
+    toolbar.insertAggregation("content", this.buttonMessagePop, 0);
+
+    this.createMessagePopover();
+    this.attachMessageChange();
+
+    if (!this.toolbarSpacer) {
+      this.toolbarSpacer = new ToolbarSpacer();
+      toolbar.insertAggregation("content", this.toolbarSpacer, 1);
+    }
+  }
+  // #endregion Messaging
 
   // #region Export to Excel
   public onExportExcel(): void {
@@ -1201,7 +1284,7 @@ export default class Main extends Base {
       const masterModel = this.getModel("master");
 
       oDataModel.read("/FieldValueHelpSet", {
-        success: (response: ODataResponse<FieldValueHelpItem[]>) => {
+        success: (response: ODataResponses<FieldValueHelpItem[]>) => {
           console.log("Raw FieldValueHelpSet data:", response.results);
 
           const status: FieldValueHelpItem[] = [];

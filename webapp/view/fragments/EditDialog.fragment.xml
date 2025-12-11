@@ -94,29 +94,20 @@
             </form:SimpleForm>
         </content>
 
-        <footer>
-            <Toolbar>
-                <Button
-                    id="editMessagePopoverBtn"
-                    visible="{=!!${message>/}.length}"
-                    icon="{ path: '/', formatter: '.buttonIconFormatter' }"
-                    type="{ path: '/', formatter: '.buttonTypeFormatter' }"
-                    text="{path: '/', formatter: '.highestSeverityMessages' }"
-                    press=".handleMessagePopoverPress"
-                    ariaHasPopup="Dialog"
-                />
-                <ToolbarSpacer />
-                <Button
-                    text="Update"
-                    type="Emphasized"
-                    press=".onSubmitEditRequest"
-                    icon="sap-icon://paper-plane"
-                />
-                <Button
-                    text="Cancel"
-                    press=".onCancelEdit"
-                />
-            </Toolbar>
-        </footer>
+        <beginButton>
+            <Button
+                text="Update"
+                type="Emphasized"
+                press=".onSubmitEditRequest"
+                icon="sap-icon://paper-plane"
+            />
+        </beginButton>
+
+        <endButton>
+            <Button
+                text="Cancel"
+                press=".onCancelEdit"
+            />
+        </endButton>
     </Dialog>
 </core:FragmentDefinition>

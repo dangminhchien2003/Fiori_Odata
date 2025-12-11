@@ -17,6 +17,9 @@
     "@sapui5/types": "~1.120.0",
     "@types/lodash.isequal": "^4.5.8",
     "@types/lodash.isstring": "^4.0.9",
+    "@types/lodash.round": "^4.0.9",
+    "@types/lodash.tostring": "^4.1.9",
+    "@types/validator": "^13.15.10",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "@typescript-eslint/parser": "^7.1.1",
     "@ui5/cli": "^4.0.16",
@@ -45,7 +48,11 @@
   "sapuxLayer": "CUSTOMER_BASE",
   "dependencies": {
     "dayjs": "^1.11.19",
+    "lodash": "^4.17.21",
     "lodash.isequal": "^4.5.0",
-    "lodash.isstring": "^4.0.1"
+    "lodash.round": "^4.0.4",
+    "lodash.tostring": "^4.1.4",
+    "lodash.isstring": "^4.0.1",
+    "validator": "^13.15.23"
   }
 }

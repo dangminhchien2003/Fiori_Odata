@@ -88,7 +88,10 @@
                     required="true"
                     rows="3"
                     growingMaxLines="3"
-                    value="{form>Reason}"
+                    value="{
+                        path: 'form>Reason',
+                        type: '.dataType.FieldCurrency'
+                    }"
                     change="onChangeValue"
                     fieldGroupIds="FormField"
                     tooltip="Lý do"
@@ -98,7 +101,7 @@
 
         <footer>
             <Toolbar>
-                <Button
+                <!-- <Button
                     id="messagePopoverBtn"
                     visible="{=!!${message>/}.length}"
                     icon="{ path: '/', formatter: '.buttonIconFormatter' }"
@@ -106,7 +109,7 @@
                     text="{path: '/', formatter: '.highestSeverityMessages' }"
                     press=".handleMessagePopoverPress"
                     ariaHasPopup="Dialog"
-                />
+                /> -->
                 <ToolbarSpacer />
                 <Button
                     text="Send"
